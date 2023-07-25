@@ -4,8 +4,8 @@ class Node:
     def __init__(self, prior=None, move=None, parent=None):
          """
         Args:
-            prior (float): probability of the node for a specific action, 'None' for root node
-            move: action associated to the prior probability
+            prior (float): probability of the node for a specific action (i.e., based on the parent), 'None' for root node
+            move: action associated to the prior probability (i.e. what action led to this node, I think)
             parent: the parent node, 'None' for root node
         """
         self.prior = prior
@@ -21,6 +21,14 @@ class Node:
         self.children = []
     
     def expand(self, prior, h_state, reward):
+        """Expand all actions, including illegal actions.
+
+        Args:
+            prior: 1D numpy.array contains prior probabilities of the state for all actions,
+                whoever calls this should pre-processing illegal actions first.
+            hidden_state: the corresponding hidden state for current timestep.
+            reward: the reward for current timestep.
+        """
 
         if self.is_expanded:
             raise RuntimeError("Node has already been expanded")
@@ -38,7 +46,7 @@ class Node:
     def best_child(self, config):
         """ Returns best child node with maximum action value Q plus an upper confidence bound U.
         Args:
-            config: a MuZeroConfig instance.
+            config: a MCTS instance.
         Returns:
             The best child node.
         """    
@@ -85,7 +93,7 @@ class Node:
         """Update statistics of the this node and all travesed parent nodes.
         Args:
             value: the predicted state value from NN network.
-            is_board_game: is playing a board game.
+            config: instance of MCTS object to get config
         """
 
         current = self
@@ -105,8 +113,8 @@ class Node:
             return 0.0
         return self.W / self.N
 
-    def U(self):
-        "Returns a 1D numpy.array contains visits count for all child."""
+    def child_N(self):
+        """Returns a 1D numpy.array contains visits count for all child."""
         return np.array([child.N for child in self.children])
 
     def has_parent(self):
