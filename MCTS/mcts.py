@@ -13,6 +13,8 @@ class MCTS():
         clip_grad=True,
         root_exploration_eps = 0.25,
     ):
+        self.pb_c_base = 19652
+        self.pb_c_init = 1.25
 
         self.discount = discount
         self.dirichlet_alpha = dirichlet_alpha
@@ -38,8 +40,8 @@ class MCTS():
 
         # Create root node
         state = torch.from_numpy(state).to(self.dev)
-        network_ouput = network.initial_inference(state)
-        prior_prob = network_ouput.pi_probs
+        h_state, rwd, pi_probs, value = network.initial_inference(state)
+        prior_prob = pi_probs
         root_node = Node(prior=0.0) # the root node does not have prior probs since it is the root
 
         # Add dirichlet noise to the prior probabilities to root node.
@@ -47,7 +49,7 @@ class MCTS():
             prior_prob = self.add_dirichlet_noise(prior_prob, eps=config.root_exploration_eps, alpha=config.root_dirichlet_alpha)
         
         # fill node with data and add "children actions", by expanding
-        root_node.expand(prior_prob,network_ouput.h_state, network_ouput.rwd) 
+        root_node.expand(prior_prob,h_state, rwd) 
 
         for _ in range(self.n_simulations):
             ## ====  Phase 1 - Select ====
@@ -58,19 +60,30 @@ class MCTS():
                 node = node.best_child(self) # pass MCTS object to have access to the config
 
            ## ==== Phase 2 - Expand and evaluation ==== 
-           h_state = torch.from_numpy(node.parent.h_state).to(self.dev)
+           h_state = torch.from_numpy(node.parent.h_state).to(self.dev) # node.parent because while loop ends at not expanded (best) child
            action = torch.tensor([node.move], device=self.dev)
-           network_ouput = network.recurrent_inference(h_state, action)
+           h_state, rwd, pi_probs, value = network.recurrent_inference(h_state, action) # compute latent state for best action (child)
 
-           node.expand(prior_prob, network_ouput.h_state, network_ouput.rwd) # I don't understand prior prob here, shouldn't come from a network_output?
+           node.expand(prior_prob, h_state, rwd) #NOTE: I don't understand prior prob here, shouldn't come from a pi_probs ?
 
            ## ==== Phase 3 - Backup on leaf node ====
-           node.backup(network_ouput.value, self)
+           node.backup(value, self)
         
         # Play: generate action prob from the root node to be played in the env.
         child_visits = root_node.child_N
 
         pi_prob = self.generate_play_policy(child_visits, temperature)
+
+        if deterministic:
+            # Choose the action with the most visit n.
+            action_idx = np.argmax(child_visits)
+        else:
+            # Sample a action.
+            action_idx = np.random.choice(np.arange(pi_prob.shape[0]), p=pi_prob)
+
+        action = root_node.children[action_idx].move        
+
+        return (action, pi_prob, root_node.Q)
 
     def add_dirichlet_noise(prob, eps=0.25, alpha=0.25):
         """Add dirichlet noise to a given probabilities.
@@ -110,4 +123,3 @@ class MCTS():
             visits_count = np.power(visits_count,exp)
 
         return visits_count / np.sum(visits_count)
-        
