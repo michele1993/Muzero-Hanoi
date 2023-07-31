@@ -1,8 +1,10 @@
+import numpy as np
+import math
 class Node:
     """ Nodes in the MCTS"""
 
     def __init__(self, prior=None, move=None, parent=None):
-         """
+        """
         Args:
             prior (float): probability of the node for a specific action (i.e., based on the parent), 'None' for root node
             move: action associated to the prior probability (i.e. what action led to this node, I think)
@@ -37,7 +39,7 @@ class Node:
         self.rwd = reward
 
         # Expand into all possible children
-        for action in range(0, prior.shape[0])
+        for action in range(0, prior.shape[0]):
             child = Node(prior=prior[action], move=action, parent=self)
             self.children.append(child)
                 
@@ -61,7 +63,7 @@ class Node:
 
         return self.children[a_indx] # return best child
 
-    def child_Q(config):
+    def child_Q(self, config):
         """Returns a 1D numpy.array contains mean action value for all children.
         Returns:
             a 1D numpy.array contains Q values for each of the children nodes.
@@ -74,7 +76,7 @@ class Node:
                 Q.append(child.rwd + config.discount * child.Q)
             else:
                 Q.append(0)
-        return np,array(Q)
+        return np.array(Q)
     
     def child_U(self, config):
         """ Returns a 1D numpy.array contains UCB score for all children (i.e., the exploration bonus).

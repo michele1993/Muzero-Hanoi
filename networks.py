@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 # NOTE: The original code uses an additional transformation from policy, reward and value logits (i.e. value_suppot_vector ect.) to the actual polcy, value etc.
 # in the current implementation, we skip this additional transform. and map directly onto the values.
@@ -13,10 +14,12 @@ class MuZeroNet(nn.Module):
         action_s,
         value_s = 1,
         reward_s = 1,
+        h1_s = 256,
+        h2_s = 64
     ):
         super().__init__()
 
-        self.num_actions = num_actions
+        self.num_actions = action_s
 
         self.representation_net = nn.Sequential(
             nn.Linear(rpr_input_s,h1_s),
@@ -48,7 +51,7 @@ class MuZeroNet(nn.Module):
             nn.Linear(h1_s, value_s),
         )
 
-    def initial_inference(x):
+    def initial_inference(self,x):
         """During self-play, given environment observation, use representation function to predict initial hidden state.
         Then use prediction function to predict policy probabilities and state value (on the hidden state)."""
 
@@ -63,7 +66,7 @@ class MuZeroNet(nn.Module):
 
         pi_probs = pi_probs.cpu()
         value = value.cpu()
-        rwd = reward.cpu()
+        rwd = rwd.cpu()
         h_state = h_state.cpu()
 
         return h_state, rwd, pi_probs, value
@@ -82,7 +85,7 @@ class MuZeroNet(nn.Module):
         
         pi_probs = pi_probs.cpu() # .numpy() ?
         value = value.cpu()
-        reward = reward.cpu()
+        rwd = rwd.cpu()
         h_state = h_state.cpu()
 
         return h_state, rwd, pi_probs, value
@@ -100,7 +103,7 @@ class MuZeroNet(nn.Module):
 
     def prediction(self, h):
 
-        pi_logits = self.policy(h)
+        pi_logits = self.policy_net(h)
 
         value_prediction = self.value_net(h)
 

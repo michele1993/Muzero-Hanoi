@@ -1,3 +1,5 @@
+import torch
+from MCTS.node import Node
 class MCTS():
     """ Define class to run MCTS"""
 
@@ -23,7 +25,7 @@ class MCTS():
         self.batch_s = batch_s
         self.dev = device
             
-    def run_mcts(state, network, temperature, deterministic=False):           
+    def run_mcts(self,state, network, temperature, deterministic=False):           
         """ Run MCT
         Args:
             state: current obs from the environment.
@@ -39,7 +41,7 @@ class MCTS():
         """
 
         # Create root node
-        state = torch.from_numpy(state).to(self.dev)
+        state = torch.from_numpy(state).to(self.dev).float()
         h_state, rwd, pi_probs, value = network.initial_inference(state)
         prior_prob = pi_probs
         root_node = Node(prior=0.0) # the root node does not have prior probs since it is the root
@@ -59,15 +61,15 @@ class MCTS():
             while node.is_expanded:
                 node = node.best_child(self) # pass MCTS object to have access to the config
 
-           ## ==== Phase 2 - Expand and evaluation ==== 
-           h_state = torch.from_numpy(node.parent.h_state).to(self.dev) # node.parent because while loop ends at not expanded (best) child
-           action = torch.tensor([node.move], device=self.dev)
-           h_state, rwd, pi_probs, value = network.recurrent_inference(h_state, action) # compute latent state for best action (child)
+            ## ==== Phase 2 - Expand and evaluation ==== 
+            h_state = torch.from_numpy(node.parent.h_state).to(self.dev).float() # node.parent because while loop ends at not expanded (best) child
+            action = torch.tensor([node.move], device=self.dev)
+            h_state, rwd, pi_probs, value = network.recurrent_inference(h_state, action) # compute latent state for best action (child)
 
-           node.expand(prior_prob, h_state, rwd) #NOTE: I don't understand prior prob here, shouldn't come from a pi_probs ?
+            node.expand(prior_prob, h_state, rwd) #NOTE: I don't understand prior prob here, shouldn't come from a pi_probs ?
 
-           ## ==== Phase 3 - Backup on leaf node ====
-           node.backup(value, self)
+            ## ==== Phase 3 - Backup on leaf node ====
+            node.backup(value, self)
         
         # Play: generate action prob from the root node to be played in the env.
         child_visits = root_node.child_N
@@ -85,7 +87,7 @@ class MCTS():
 
         return (action, pi_prob, root_node.Q)
 
-    def add_dirichlet_noise(prob, eps=0.25, alpha=0.25):
+    def add_dirichlet_noise(self, prob, eps=0.25, alpha=0.25):
         """Add dirichlet noise to a given probabilities.
         Args:
             prob: a numpy.array contains action probabilities we want to add noise to.
@@ -102,7 +104,7 @@ class MCTS():
 
         return noised_prob
                     
-    def generate_play_policy(visits_count, temperature):
+    def generate_play_policy(self,visits_count, temperature):
         """ Returns policy action probabilities proportional to their exponentiated visit count during MCTS 
         Args:
             visits_count: a 1D numpy.array contains child node visits count.
