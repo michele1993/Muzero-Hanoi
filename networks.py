@@ -51,6 +51,7 @@ class MuZeroNet(nn.Module):
             nn.Linear(h1_s, value_s),
         )
 
+    @torch.no_grad()
     def initial_inference(self,x):
         """During self-play, given environment observation, use representation function to predict initial hidden state.
         Then use prediction function to predict policy probabilities and state value (on the hidden state)."""
@@ -60,17 +61,18 @@ class MuZeroNet(nn.Module):
 
         # Prediction
         pi_logits, value = self.prediction(h_state)
-        pi_probs = F.softmax(pi_logits) # NOTE: dim ?
+        pi_probs = F.softmax(pi_logits,dim=-1) # NOTE: dim ?
 
         rwd = torch.zeros_like(value) # NOTE: Not sure why it doesn't predict rwd for initial inference
 
-        pi_probs = pi_probs.cpu()
-        value = value.cpu()
-        rwd = rwd.cpu()
-        h_state = h_state.cpu()
+        pi_probs = pi_probs.squeeze(0).cpu().numpy()
+        value = value.squeeze(0).cpu().item()
+        rwd = rwd.squeeze(0).cpu().item()
+        h_state = h_state.squeeze(0).cpu().numpy()
 
         return h_state, rwd, pi_probs, value
         
+    @torch.no_grad()
     def recurrent_inference(self, h_state, action):
         """During self-play, given hidden state at timestep `t-1` and action at t,
         use dynamics function to predict the reward and next hidden state,
@@ -81,12 +83,12 @@ class MuZeroNet(nn.Module):
 
         # Prediction
         pi_logits, value = self.prediction(h_state)
-        pi_probs = F.softmax(pi_logits) # NOTE: dim ?
-        
-        pi_probs = pi_probs.cpu() # .numpy() ?
-        value = value.cpu()
-        rwd = rwd.cpu()
-        h_state = h_state.cpu()
+        pi_probs = F.softmax(pi_logits,dim=-1) # NOTE: dim ?
+
+        pi_probs = pi_probs.squeeze(0).cpu().numpy()
+        value = value.squeeze(0).cpu().item()
+        rwd = rwd.squeeze(0).cpu().item()
+        h_state = h_state.squeeze(0).cpu().numpy()
 
         return h_state, rwd, pi_probs, value
 

@@ -107,7 +107,7 @@ class Node:
             value = current.rwd + config.discount * value
 
             current = current.parent
-    
+    @property 
     def Q(self):
         """ Returns the mean action value Q(s, a)."""
 
@@ -115,10 +115,12 @@ class Node:
             return 0.0
         return self.W / self.N
 
+    @property
     def child_N(self):
         """Returns a 1D numpy.array contains visits count for all child."""
         return np.array([child.N for child in self.children])
 
+    @property
     def has_parent(self):
         """ Returns boolean if node has parent """
         return isinstance(self.parent, Node)

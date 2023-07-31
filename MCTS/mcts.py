@@ -1,5 +1,7 @@
 import torch
 from MCTS.node import Node
+import numpy as np
+
 class MCTS():
     """ Define class to run MCTS"""
 
@@ -55,15 +57,21 @@ class MCTS():
 
         for _ in range(self.n_simulations):
             ## ====  Phase 1 - Select ====
-            # Select best child node until reach a leaf
-            node = root_node
+            # Reset initial node to root for each mcts simulation
+            node = root_node 
 
+            # Select best child node until reach a leaf
             while node.is_expanded:
                 node = node.best_child(self) # pass MCTS object to have access to the config
 
             ## ==== Phase 2 - Expand and evaluation ==== 
             h_state = torch.from_numpy(node.parent.h_state).to(self.dev).float() # node.parent because while loop ends at not expanded (best) child
             action = torch.tensor([node.move], device=self.dev)
+
+            # Convert action to 1-hot encoding
+            action = torch.nn.functional.one_hot(action, num_classes=network.num_actions).squeeze()
+
+            # Take a step in latent space
             h_state, rwd, pi_probs, value = network.recurrent_inference(h_state, action) # compute latent state for best action (child)
 
             node.expand(prior_prob, h_state, rwd) #NOTE: I don't understand prior prob here, shouldn't come from a pi_probs ?
