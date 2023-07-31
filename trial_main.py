@@ -16,7 +16,7 @@ dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 ## ========= Initialise env ========
 N = 3 
 env = TowersOfHanoi(N)
-max_steps= 200
+max_steps= 20
 a_space_s = 6 # 6 actions available (including iligal) for any state and number of disks
 state_space = env.states
 s_space_s = len(state_space)
@@ -26,7 +26,7 @@ s_space_s = len(state_space)
 one_hot_s = np.eye(s_space_s) # this creates a matrix whose columns represent a different 1hot vector for each state
 ## =================================
 
-mcts = MCTS(discount=discount, dirichlet_alpha=dirichlet_alpha, n_simulations=n_simulations, batch_s=batch_s,lr=lr, device=dev)
+mcts = MCTS(discount=discount, root_dirichlet_alpha=dirichlet_alpha, n_simulations=n_simulations, batch_s=batch_s,lr=lr, device=dev)
 networks = MuZeroNet(rpr_input_s= s_space_s, action_s = a_space_s)
 
 c_state,done = env.reset()
@@ -38,12 +38,14 @@ while not done:
     oneH_c_s = one_hot_s[:,c_s_indx]
 
     # Run MCTS to select the action
-    action, pi_prob, rootNode_Q = mcts.run_mcts(oneH_c_s, networks, temperature, True)
+    action, pi_prob, rootNode_Q = mcts.run_mcts(oneH_c_s, networks, temperature, deterministic=False)
     print(action)
-    exit()
 
     n_state, rwd, done, illegal_move = env.step(action)
     step +=1
+
+    print('illegal: ',illegal_move)
+    print(n_state,'\n')
 
     if step == max_steps:
        done = True

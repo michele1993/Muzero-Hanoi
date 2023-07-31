@@ -8,7 +8,7 @@ class MCTS():
     def __init__(
         self,
         discount,
-        dirichlet_alpha,
+        root_dirichlet_alpha,
         n_simulations,
         batch_s,
         lr,
@@ -21,7 +21,7 @@ class MCTS():
         self.pb_c_init = 1.25
 
         self.discount = discount
-        self.dirichlet_alpha = dirichlet_alpha
+        self.root_dirichlet_alpha = root_dirichlet_alpha
         self.root_exploration_eps = root_exploration_eps
         self.n_simulations = n_simulations
         self.batch_s = batch_s
@@ -50,7 +50,7 @@ class MCTS():
 
         # Add dirichlet noise to the prior probabilities to root node.
         if not deterministic and self.root_dirichlet_alpha > 0.0 and self.root_exploration_eps > 0.0:
-            prior_prob = self.add_dirichlet_noise(prior_prob, eps=config.root_exploration_eps, alpha=config.root_dirichlet_alpha)
+            prior_prob = self.add_dirichlet_noise(prior_prob, eps=self.root_exploration_eps, alpha=self.root_dirichlet_alpha)
         
         # fill node with data and add "children actions", by expanding
         root_node.expand(prior_prob,h_state, rwd) 
