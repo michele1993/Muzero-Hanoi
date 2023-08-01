@@ -36,10 +36,9 @@ class MCTS():
             deterministic: after the MCTS search, choose the child node with most visits number to play in the real environment,
          instead of sample through a probability distribution, default off.
          Returns:
-            tuple contains:
             a integer indicate the sampled action to play in the environment.
             a 1D numpy.array search policy action probabilities from the MCTS search result.
-            a float represent the search value of the root node.
+            a float represent the value of the root node (based on the search).
         """
 
         # Create root node
@@ -61,10 +60,11 @@ class MCTS():
             node = root_node 
 
             # Select best child node until reach a leaf
+            # NOTE: the leaf will not be expanded (i.e. have no state)
             while node.is_expanded:
                 node = node.best_child(self) # pass MCTS object to have access to the config
 
-            ## ==== Phase 2 - Expand and evaluation ==== 
+            ## ==== Phase 2 - Expand leaf - based on parent state and action associated to that (best) leaf ==== 
             h_state = torch.from_numpy(node.parent.h_state).to(self.dev).float() # node.parent because while loop ends at not expanded (best) child
             action = torch.tensor([node.move], device=self.dev)
 
@@ -81,7 +81,6 @@ class MCTS():
         
         # Play: generate action prob from the root node to be played in the env.
         child_visits = root_node.child_N
-
         pi_prob = self.generate_play_policy(child_visits, temperature)
 
         if deterministic:
@@ -93,7 +92,10 @@ class MCTS():
 
         action = root_node.children[action_idx].move        
 
-        return (action, pi_prob, root_node.Q)
+
+        # pi_prob and root_node.Q are returned to be stored for the training phase
+        # root_node.Q is only needed if use TD-returns, by bootstrapping value of future (root) states to update values of current (root) state
+        return action, pi_prob, root_node.Q
 
     def add_dirichlet_noise(self, prob, eps=0.25, alpha=0.25):
         """Add dirichlet noise to a given probabilities.

@@ -17,7 +17,9 @@ class Node:
 
         self.N = 0 # n of visits
         self.W = 0.0 # summed action value
-        self.rwd = 0.0
+
+        # Note, rwd is needed to update the value at the previous s (i.e., the s leading to current s), together with the value at current s in backup()
+        self.rwd = 0.0 
         self.h_state = None
 
         self.children = []
@@ -45,6 +47,24 @@ class Node:
                 
         self.is_expanded = True        
     
+
+    def backup(self, value, config):
+        """Update statistics of the this node and all travesed parent nodes.
+        Args:
+            value: the predicted state value from NN network.
+            config: instance of MCTS object to get config
+        """
+
+        current = self
+
+        while current is not None:
+            current.W += value
+            current.N +=1
+
+            value = current.rwd + config.discount * value
+            current = current.parent
+ 
+
     def best_child(self, config):
         """ Returns best child node with maximum action value Q plus an upper confidence bound U.
         Args:
@@ -91,22 +111,6 @@ class Node:
             U.append(child.prior * w)
         return np.array(U)    
 
-    def backup(self, value, config):
-        """Update statistics of the this node and all travesed parent nodes.
-        Args:
-            value: the predicted state value from NN network.
-            config: instance of MCTS object to get config
-        """
-
-        current = self
-
-        while current is not None:
-            current.W += value
-            current.N +=1
-
-            value = current.rwd + config.discount * value
-
-            current = current.parent
     @property 
     def Q(self):
         """ Returns the mean action value Q(s, a)."""
