@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.optim as opt
 
 # NOTE: The original code uses an additional transformation from policy, reward and value logits (i.e. value_suppot_vector ect.) to the actual polcy, value etc.
 # in the current implementation, we skip this additional transform. and map directly onto the values.
@@ -12,6 +13,7 @@ class MuZeroNet(nn.Module):
         self,
         rpr_input_s,
         action_s,
+        lr,
         value_s = 1,
         reward_s = 1,
         h1_s = 256,
@@ -50,6 +52,8 @@ class MuZeroNet(nn.Module):
             nn.ReLU(),
             nn.Linear(h1_s, value_s),
         )
+
+        self.optimiser = opt.Adam(self.parameters(),lr)
 
     @torch.no_grad()
     def initial_inference(self,x):
@@ -92,13 +96,18 @@ class MuZeroNet(nn.Module):
 
         return h_state, rwd, pi_probs, value
 
+    def update(self, loss):
+        
+        self.optimiser.zero_grad()
+        loss.backward()
+        self.optimiser.step()
 
     def represent(self,x):
         return self.representation_net(x)
 
     def dynamics(self, h, action):
 
-        x = torch.cat([h,action])
+        x = torch.cat([h,action],dim=-1)
         h = self.dynamic_net(x)
         rwd_prediction = self.rwd_net(h)
         return h, rwd_prediction

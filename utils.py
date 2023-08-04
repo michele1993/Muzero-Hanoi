@@ -8,7 +8,7 @@ def compute_MCreturns(rwds,discount):
     """        
     
     rwds = np.array(rwds)
-    discuounts = (discount**(np.array(range(len(rwds)))))
+    discounts = (discount**(np.array(range(len(rwds)))))
 
     return np.flip(np.cumsum(np.flip(discounts * rwds, axis=(0,)), axis=0), axis=(0,)) / discounts
      
