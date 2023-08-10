@@ -11,7 +11,6 @@ class MCTS():
         root_dirichlet_alpha,
         n_simulations,
         batch_s,
-        lr,
         device,
         h_dim=64,
         clip_grad=True,
@@ -27,7 +26,7 @@ class MCTS():
         self.batch_s = batch_s
         self.dev = device
             
-    def run_mcts(self,state, network, temperature, deterministic=False):           
+    def run_mcts(self,state, network, temperature, deterministic):           
         """ Run MCT
         Args:
             state: current obs from the environment.

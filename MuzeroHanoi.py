@@ -31,7 +31,7 @@ class MuzeroHanoi():
         self.one_hot_s = np.eye(s_space_s) # this creates a matrix whose columns represent a different 1hot vector for each state
         ## =================================
         ## ========== Initialise MuZero components =======
-        self.mcts = MCTS(discount=self.discount, root_dirichlet_alpha=dirichlet_alpha, n_simulations=n_mcts_simulations, batch_s=batch_s,lr=lr, device=dev)
+        self.mcts = MCTS(discount=self.discount, root_dirichlet_alpha=dirichlet_alpha, n_simulations=n_mcts_simulations, batch_s=batch_s, device=dev)
         self.networks = MuZeroNet(rpr_input_s= s_space_s, action_s = a_space_s,lr=lr)
         ## ===================================
 
@@ -63,16 +63,20 @@ class MuzeroHanoi():
           rwd_loss += (pred_rwds.squeeze() - rwds[:,t])**2 / pred_rwds.size()[0]
           policy_loss += F.cross_entropy(pred_pi_probs, pi_probs[:,t,:], reduction='none')
 
+          #print(pred_values.squeeze().size(), mc_returns[:,t].size())
+          #print(pred_rwds.squeeze().size(), rwds[:,t].size())
+          #print(pred_pi_probs.size(), pi_probs[:,t,:].size(), "\n")
+
           
-      loss = value_loss + rwd_loss + policy_loss
+      loss = value_loss.mean() + rwd_loss.mean() + policy_loss.mean()
 
       # Scale the loss by 1/unroll_steps.
       loss.register_hook(lambda grad: grad * (1/unroll_n_steps))
 
-      return loss.mean() # NOTE: in original implementation scales this loss by some weights
+      return loss, value_loss.mean().detach() , rwd_loss.mean().detach(), policy_loss.mean().detach()   # NOTE: in original implementation scales this loss by some weights
 
              
-    def play_game(self, temperature):
+    def play_game(self, temperature, deterministic=False):
 
         # Initialise list to store game variables
         episode_state = []
@@ -90,7 +94,7 @@ class MuzeroHanoi():
             oneH_c_s = self.one_hot_s[:,c_s_indx]
 
             # Run MCTS to select the action
-            action, pi_prob, rootNode_Q = self.mcts.run_mcts(oneH_c_s, self.networks, temperature, deterministic=False)
+            action, pi_prob, rootNode_Q = self.mcts.run_mcts(oneH_c_s, self.networks, temperature, deterministic=deterministic)
 
             n_state, rwd, done, illegal_move = self.env.step(action)
             n_s_indx = self.state_space.index(n_state) # Compute new c_state index if not done
@@ -112,16 +116,30 @@ class MuzeroHanoi():
 
 
         #Compute MC return for each state
-        mc_returns = compute_MCreturns(episode_rwd, self.discount)
+        episode_returns = compute_MCreturns(episode_rwd, self.discount)
         # Convert episode trajectory into appropriate transitions for training
-        states, rwds, actions, pi_probs, mc_returns = self.organise_transitions(episode_state, episode_rwd, episode_action, episode_piProb, mc_returns, unroll_n_steps=5)
-
+        states, rwds, actions, pi_probs, mc_returns = self.organise_transitions(episode_state, episode_rwd, episode_action, episode_piProb, episode_returns, unroll_n_steps=5)
+        
         return step, states, rwds, actions, pi_probs, mc_returns   
 
-    def organise_transitions(self, episode_state, episode_rwd, episode_action, episode_piProb, episode_mc_returs, unroll_n_steps=5):
+    def organise_transitions(self, episode_state, episode_rwd, episode_action, episode_piProb, episode_mc_returns, unroll_n_steps=5):
         """ Orgnise transitions in appropriate format, each state is associated to the n_step target values (pi_probs, rwds, MC_returs)"""
 
-        n_states = len(episode_state)
+        ## ===========================================
+        # Try to remove unroll_n_steps terminal states, NOTE: Not a permanent solution, need terminal states to solve Hanoi with as few moves as possible
+        episode_state = episode_state[:-unroll_n_steps] # REMOVE this line, just to see if learning problem is driven by terminal states
+        ## ===========================================
+
+        n_states = len(episode_state) 
+
+        # Add "padding" for terminal states, which don't have enough unroll_n_steps ahead
+        # by trating states over the end of game as absorbing states
+        # NOTE: This can cause issues, since a lot of cycles in Hanoi and zero is a real action
+        episode_rwd += [0] * unroll_n_steps
+        episode_action += [0] * unroll_n_steps
+        episode_mc_returns += [0] * unroll_n_steps
+        absorbing_policy = np.ones_like(episode_piProb[-1]) / len(episode_piProb[-1])
+        episode_piProb += [absorbing_policy] * unroll_n_steps
 
         # Initialise variables for storage
         rwds = np.zeros((n_states, unroll_n_steps))
@@ -130,23 +148,10 @@ class MuzeroHanoi():
         mc_returns = np.zeros((n_states, unroll_n_steps))
 
         for i in range(n_states):
-
-            if n_states > i + unroll_n_steps:
-
-                rwds[i,:] = episode_rwd[i:i+unroll_n_steps]
-                actions[i,:] = episode_action[i:i+unroll_n_steps]
-                pi_probs[i,:,:] = episode_piProb[i:i+unroll_n_steps]
-                mc_returns[i,:] = episode_mc_returs[i:i+unroll_n_steps]
-
-            else: # if there are not n_step target values ahead of current state (because of terminal), store value for all remaining steps
-
-                # Calculate how many steps left before terminal
-                indx = n_states - i 
-                # Store values based on how many steps left before terminal
-                rwds[i,:indx] = episode_rwd[i:]
-                actions[i,:indx] = episode_action[i:]
-                pi_probs[i,:indx,:] = episode_piProb[i:]
-                mc_returns[i,:indx] = episode_mc_returs[i:]
+            rwds[i,:] = episode_rwd[i:i+unroll_n_steps]
+            actions[i,:] = episode_action[i:i+unroll_n_steps]
+            pi_probs[i,:,:] = episode_piProb[i:i+unroll_n_steps]
+            mc_returns[i,:] = episode_mc_returns[i:i+unroll_n_steps]
 
         return np.array(episode_state), torch.from_numpy(rwds), torch.from_numpy(actions), torch.from_numpy(pi_probs), torch.from_numpy(mc_returns) 
 

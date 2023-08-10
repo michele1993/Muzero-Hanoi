@@ -10,5 +10,5 @@ def compute_MCreturns(rwds,discount):
     rwds = np.array(rwds)
     discounts = (discount**(np.array(range(len(rwds)))))
 
-    return np.flip(np.cumsum(np.flip(discounts * rwds, axis=(0,)), axis=0), axis=(0,)) / discounts
+    return list(np.flip(np.cumsum(np.flip(discounts * rwds, axis=(0,)), axis=0), axis=(0,)) / discounts)
      
