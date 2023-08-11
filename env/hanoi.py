@@ -19,7 +19,6 @@ class TowersOfHanoi:
         ## e.g. [0,1] is moving a disk from the first peg (0) to the second peg (1) 
         ## here we are denoting all possible moves, checking later whether the move is allowd
         self.moves = list(itertools.permutations(list(range(3)), 2)) # No matter the number of disks, there are always 6 moves overall
-        self.generate_reward_matrix()
 
     def step(self,action):
         ## Perform a step in tower of Hanoi, by passing an action indexing one of the 6 available moves
@@ -81,22 +80,3 @@ class TowersOfHanoi:
         ## NOTE: since each state dim is a disk (not a peg) then a move only changes that one dim of the state referring to the moved disk
         moved_state[disc_to_move] = move[1] # update current state by simply chaging the value of the (one) disk that got moved
         return tuple(moved_state) # Return new (moved) state
-
-    ## NOT NECESSARY:
-    # Generates the reward matrix for the Towers of Hanoi game as a Pandas DataFrame
-    def generate_reward_matrix(self):      # N is the number of discs
-
-        self.R = pd.DataFrame(index=self.states, columns=self.states, data=-np.inf)
-
-        ## For each state check what of the 6 available moves are allowed, this allows to build the reward matrix
-        ## Assign a rwd of -inf to not allowed states, 0 to allowed states not leading to the goal and 100 to states leading to the goal
-        for state in self.states:
-            self.c_state = state # "State" is a tuple of length N, where N is the number of discs, and the elements are peg indices in [0,1,2]
-            for move in self.moves:
-                if self.move_allowed(move):
-                    next_state = self.get_moved_state(move)
-                    self.R[state][next_state] = 0
-        final_state = self.goal          # Define final state as all discs being on the last peg, which is denoted by "2"
-
-        ## CAREFUL: if no longer use -inf for values of impossible states, need to find another way to give value of 100 can't use sum
-        self.R[final_state] += 100               # Add a reward for all moves leading to the final state, Note this works since we are adding 100 (impossible states = -inf)

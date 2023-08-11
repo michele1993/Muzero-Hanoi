@@ -53,7 +53,7 @@ class MCTS():
         # fill node with data and add "children actions", by expanding
         root_node.expand(prior_prob,h_state, rwd) 
 
-        for _ in range(self.n_simulations):
+        for s in range(self.n_simulations):
             ## ====  Phase 1 - Select ====
             # Reset initial node to root for each mcts simulation
             node = root_node 
@@ -68,7 +68,7 @@ class MCTS():
             action = torch.tensor([node.move], device=self.dev)
 
             # Convert action to 1-hot encoding
-            action = torch.nn.functional.one_hot(action, num_classes=network.num_actions).squeeze()
+            action = torch.nn.functional.one_hot(action, num_classes=network.num_actions).squeeze().to(self.dev)
 
             # Take a step in latent space
             h_state, rwd, pi_probs, value = network.recurrent_inference(h_state, action) # compute latent state for best action (child)
@@ -90,7 +90,6 @@ class MCTS():
             action_idx = np.random.choice(np.arange(pi_prob.shape[0]), p=pi_prob)
 
         action = root_node.children[action_idx].move        
-
 
         # pi_prob and root_node.Q are returned to be stored for the training phase
         # root_node.Q is only needed if use TD-returns, by bootstrapping value of future (root) states to update values of current (root) state
