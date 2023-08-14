@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
-from utils import compute_MCreturns
+from utils import compute_MCreturns, adjust_temperature
 from networks import MuZeroNet
 from MCTS.mcts import MCTS
 from env.hanoi import TowersOfHanoi
@@ -59,7 +59,7 @@ class MuzeroHanoi():
             oneH_c_s = self.one_hot_s[:,c_s_indx]
 
             # Run MCTS to select the action
-            action, pi_prob, rootNode_Q = self.mcts.run_mcts(oneH_c_s, self.networks, temperature, deterministic=deterministic)
+            action, pi_prob, rootNode_Q = self.mcts.run_mcts(oneH_c_s, self.networks, temperature=adjust_temperature(step), deterministic=deterministic)
 
             n_state, rwd, done, illegal_move = self.env.step(action)
             n_s_indx = self.state_space.index(n_state) # Compute new c_state index if not done
@@ -82,11 +82,12 @@ class MuzeroHanoi():
 
         #Compute MC return for each state
         episode_returns = compute_MCreturns(episode_rwd, self.discount)
+        priorities = np.abs(np.array(episode_returns) - np.array(episode_rootQ)) 
 
         # Organise ep. trajectory into appropriate transitions for training - i.e. each transition should have unroll_n_steps associated transitions for training
         states, rwds, actions, pi_probs, mc_returns = self.organise_transitions(episode_state, episode_rwd, episode_action, episode_piProb, episode_returns)
         
-        return step, states, rwds, actions, pi_probs, mc_returns   
+        return step, states, rwds, actions, pi_probs, mc_returns, priorities   
 
     def train(self, states, rwds, actions, pi_probs, mc_returns):
       # TRIAL: expands all states (including final ones) of mcts_steps for simplicty for steps after terminal just map everything to zero   
