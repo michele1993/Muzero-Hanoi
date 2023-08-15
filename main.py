@@ -11,7 +11,7 @@ np.random.seed(s)
 
 ## ========= Useful variables: ===========
 episodes = 10000
-pre_training = 10
+pre_training = 100
 discount = 0.8
 dirichlet_alpha = 0.25
 temperature = 1 # 
@@ -49,15 +49,14 @@ for ep in range(1,episodes):
 
     if ep > pre_training:
         for t in range(muzero_train_steps):
-
             if priority_replay:
                 states, rwds, actions, pi_probs, mc_returns, priority_indx, priority_w = buffer.priority_sample(batch_s)
             else:
                 states, rwds, actions, pi_probs, mc_returns = buffer.uniform_sample(batch_s)
+                priority_w, priority_indx = None,None
 
-            raise NotImplemented(" NOTE: Must implement train() update usign weights AND update priorities of the buffer - look at calc_loss()")
-
-            loss, v_loss, r_loss, p_loss  = muzero.train(states, rwds, actions, pi_probs, mc_returns)
+            loss, new_priority_w, v_loss, r_loss, p_loss  = muzero.train(states, rwds, actions, pi_probs, mc_returns, priority_w)
+            buffer.update_priorities(priority_indx, new_priority_w)
             # Update network
             muzero.networks.update(loss)
 
@@ -76,5 +75,5 @@ for ep in range(1,episodes):
         accuracy = []
         value_loss,rwd_loss,pi_loss = [],[],[]
 
-steps, states, rwds, actions, pi_probs, mc_returns = muzero.play_game(temperature,deterministic=True)
+steps, states, rwds, actions, pi_probs, mc_returns, priority_indx, priority_w = muzero.play_game(temperature,deterministic=True)
 print(steps)

@@ -2,11 +2,12 @@ import torch
 import numpy as np
 
 class Buffer:
-    def __init__(self, size, unroll_n_steps, d_state, d_action, device, priority_exponent=1):
+    def __init__(self, size, unroll_n_steps, d_state, d_action, device, priority_exponent=1, importance_sampling_exponent=0):
         """ data buffer that holds transitions already organised for unroll_steps during training in np.arrays"""
 
         self.dev = device
         self._priority_exponent = priority_exponent
+        self._importance_sampling_exponent = importance_sampling_exponent 
 
         #Dimensions
         self.size = size
@@ -85,12 +86,15 @@ class Buffer:
         weights = ((1.0 / self.size) / priorities_probs[indx]) ** self._importance_sampling_exponent
         weights /= np.max(weights)
 
+        weights = torch.from_numpy(weights).to(self.dev)
+
         return states, rwds, actions, pi_probs, mc_returns, indx, weights
 
     def update_priorities(self, indx, new_priorities):
         """ Update priorities in the buffer, after the network has been update"""
-        assert not np.isfinite(new_priorities).all() or (new_priorities<0.0).any(), 'Priorities must be finite and positive.'
-        self.priorities[indx] = new_priorities
+        if indx is not None:
+            assert np.isfinite(new_priorities).all() and (new_priorities>0.0).any(), 'Priorities must be finite and positive.'
+            self.priorities[indx] = new_priorities
 
     def __len__(self):
         return self.size if self.is_full else self.ptr

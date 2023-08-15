@@ -89,7 +89,7 @@ class MuzeroHanoi():
         
         return step, states, rwds, actions, pi_probs, mc_returns, priorities   
 
-    def train(self, states, rwds, actions, pi_probs, mc_returns):
+    def train(self, states, rwds, actions, pi_probs, mc_returns, priority_w):
       # TRIAL: expands all states (including final ones) of mcts_steps for simplicty for steps after terminal just map everything to zero   
       # if does not work then need to adapt for terminal states not to expand tree of mcts_steps
 
@@ -99,7 +99,7 @@ class MuzeroHanoi():
       oneH_states = self.one_hot_s[:,states].T # flip to have shape [batch_s, n_dim]
       h_states = self.networks.represent(torch.from_numpy(oneH_states).float().to(self.dev))
 
-      pi_history = []
+      tot_pred_values = []
 
       for t in range(self.unroll_n_steps):
           pred_pi_probs, pred_values = self.networks.prediction(h_states)
@@ -110,32 +110,30 @@ class MuzeroHanoi():
           # Scale the gradient for dynamics function by 0.5.
           h_states.register_hook(lambda grad: grad * 0.5)
 
-          ## NOTE: For some reason F.mse_loss gives me data type error
-          #value_loss += F.mse_loss(pred_values.squeeze(), mc_returns[:,t], reduction='none')
-          #rwd_loss += F.mse_loss(pred_rwds.squeeze(), rwds[:,t], reduction='none')
-          ## Manually implement mse_loss
-          value_loss += 0.5 * (pred_values.squeeze() - mc_returns[:,t])**2 #/ pred_values.size()[0]
-          rwd_loss += 0.5 * (pred_rwds.squeeze() - rwds[:,t])**2 #/ pred_rwds.size()[0]
+          ## NOTE: For some reason F.mse_loss gives me data type error, so manually implement mse_loss
+          value_loss += 0.5 * (pred_values.squeeze() - mc_returns[:,t])**2 
+          rwd_loss += 0.5 * (pred_rwds.squeeze() - rwds[:,t])**2 
+          policy_loss += F.cross_entropy(pred_pi_probs, pi_probs[:,t], reduction='none')
 
-          #policy_loss += F.cross_entropy(pred_pi_probs, pi_probs[:,t], reduction='none')
-          # Manually implement corss_entropy
-          policy_loss += torch.sum(-pi_probs[:,t] * F.log_softmax(pred_pi_probs, dim=-1), dim=-1)  
+          tot_pred_values.append(pred_values)
 
-          #pi_history.append(torch.mean((pred_pi_probs - pi_probs[:,t])**2))
+      loss = value_loss + rwd_loss + policy_loss
 
-          #print(pred_values.squeeze().size(), mc_returns[:,t].size())
-          #print(pred_rwds.squeeze().size(), rwds[:,t].size())
-          #print(pred_pi_probs.size(), pi_probs[:,t].size(), "\n")
-          
-      #print(sum(pi_history))
-      #print("\n")
+      new_priorities = None # predefine new priorities in case no priority buffer
 
-      loss = value_loss.mean() + rwd_loss.mean() + policy_loss.mean()
+      if priority_w is not None:
+          #Scale loss using importance sampling weights (based on priorty sampling from buffer)
+          loss = loss * priority_w.detach()
+          # Compute new priorities to update priority buffer
+          with torch.no_grad():
+              tot_pred_values = torch.stack(tot_pred_values, dim=1).squeeze(-1)
+              new_priorities = (tot_pred_values[:,0] - mc_returns[:,0]).abs().cpu().numpy()
 
+      loss = loss.mean()
       # Scale the loss by 1/unroll_steps.
       loss.register_hook(lambda grad: grad * (1/self.unroll_n_steps))
 
-      return loss, value_loss.mean().detach() , rwd_loss.mean().detach(), policy_loss.mean().detach()   # NOTE: in original implementation scales this loss by some weights
+      return loss, new_priorities, value_loss.mean().detach() , rwd_loss.mean().detach(), policy_loss.mean().detach()   
 
     def organise_transitions(self, episode_state, episode_rwd, episode_action, episode_piProb, episode_mc_returns):
         """ Orgnise transitions in appropriate format, each state is associated to the n_step target values (pi_probs, rwds, MC_returs) for unroll_n_steps
