@@ -1,23 +1,26 @@
 import torch
 import numpy as np
+import logging
 from MuzeroHanoi import MuzeroHanoi
 from buffer import Buffer
+from utils import setup_logger
 
 ## ======= Set seeds for debugging =======
-s = 11
+s = 11 # seed
 torch.manual_seed(s)
 np.random.seed(s)
+setup_logger(s)
 ## =======================
 
 ## ========= Useful variables: ===========
 episodes = 10000
-pre_training = 100
-discount = 0.8
+pre_training = 200
+discount = 0.95#0.8
 dirichlet_alpha = 0.25
 temperature = 1 # 
 n_mcts_simulations = 25 # during acting n. of mcts passes for each step
 unroll_n_steps = 5
-batch_s = 1000
+batch_s = 2000
 buffer_size = 50000
 priority_replay = True
 lr = 0.002
@@ -26,8 +29,8 @@ dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print_acc = 100
 
 ## ========= Env variables ========
-N = 3 
-max_steps= 200
+N = 5 
+max_steps= 1000
 d_action = 6 # n. of action available in each state for Tower of Hanoi (including illegal ones)
 
 muzero = MuzeroHanoi(N,discount, dirichlet_alpha, n_mcts_simulations, unroll_n_steps, d_action, batch_s, lr, max_steps, dev)
@@ -38,8 +41,11 @@ accuracy = [] # in terms of mean n. steps to solve task
 value_loss,rwd_loss,pi_loss = [],[],[]
 
 #steps, states, rwds, actions, pi_probs, mc_returns = muzero.play_game(temperature,deterministic=False)
+
+logging.info('Training started \n')
 for ep in range(1,episodes):
 
+    # Play one episode
     steps, states, rwds, actions, pi_probs, mc_returns, priorities = muzero.play_game(temperature,deterministic=False)
 
     # Store episode in buffer only if successful
@@ -47,6 +53,7 @@ for ep in range(1,episodes):
         buffer.add(states, rwds, actions, pi_probs, mc_returns, priorities)
     accuracy.append(steps)
 
+    # If time to train, train MuZero network
     if ep > pre_training:
         for t in range(muzero_train_steps):
             if priority_replay:
@@ -55,10 +62,10 @@ for ep in range(1,episodes):
                 states, rwds, actions, pi_probs, mc_returns = buffer.uniform_sample(batch_s)
                 priority_w, priority_indx = None,None
 
-            loss, new_priority_w, v_loss, r_loss, p_loss  = muzero.train(states, rwds, actions, pi_probs, mc_returns, priority_w)
+            # Train network
+            new_priority_w, v_loss, r_loss, p_loss  = muzero.train(states, rwds, actions, pi_probs, mc_returns, priority_w)
+            # Update buffer priorities 
             buffer.update_priorities(priority_indx, new_priority_w)
-            # Update network
-            muzero.networks.update(loss)
 
         value_loss.append(v_loss)
         rwd_loss.append(r_loss)
@@ -66,8 +73,9 @@ for ep in range(1,episodes):
 
 
     if ep % print_acc == 0:
-        print("Episode: ",ep)
-        print("Mean acc: ",sum(accuracy) / print_acc)
+        mean_acc = sum(accuracy) / print_acc
+        logging.info(f'| Episode: {ep} | Mean accuracy: {mean_acc} \n')
+        print("Mean acc: ", mean_acc)
         print("V loss: ", sum(value_loss)/print_acc)
         print("rwd loss: ", sum(rwd_loss)/print_acc)
         print("Pi loss: ", sum(pi_loss)/print_acc)
@@ -75,5 +83,5 @@ for ep in range(1,episodes):
         accuracy = []
         value_loss,rwd_loss,pi_loss = [],[],[]
 
-steps, states, rwds, actions, pi_probs, mc_returns, priority_indx, priority_w = muzero.play_game(temperature,deterministic=True)
+steps, states, rwds, actions, pi_probs, mc_returns, _ = muzero.play_game(temperature,deterministic=True)
 print(steps)

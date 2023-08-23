@@ -1,10 +1,7 @@
 ''' Reinforcement learning of the Towers of Hanoi game.
 Reference: Watkins and Dayan, "Q-Learning", Machine Learning, 8, 279-292 (1992).'''
-
 import numpy as np
 import itertools
-import pandas as pd
-import matplotlib.pyplot as plt
 
 #NOTE: state representations where the position denotes a different disk while the value denotes the peg, so
 # a 5 disk tower has a 5 dim state space.
@@ -48,7 +45,7 @@ class TowersOfHanoi:
             #done = True
 
             ## if selected illegal move, don't terminate state but state in the same state and rwd=0
-            rwd = 0# rwd doesn't matter for REINFORCE since illegal actions are not updated
+            rwd = -1 # 0
             moved_state = self.c_state 
             done = False
 

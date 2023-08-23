@@ -133,7 +133,10 @@ class MuzeroHanoi():
       # Scale the loss by 1/unroll_steps.
       loss.register_hook(lambda grad: grad * (1/self.unroll_n_steps))
 
-      return loss, new_priorities, value_loss.mean().detach() , rwd_loss.mean().detach(), policy_loss.mean().detach()   
+      # Update network
+      self.networks.update(loss)
+
+      return  new_priorities, value_loss.mean().detach() , rwd_loss.mean().detach(), policy_loss.mean().detach()   
 
     def organise_transitions(self, episode_state, episode_rwd, episode_action, episode_piProb, episode_mc_returns):
         """ Orgnise transitions in appropriate format, each state is associated to the n_step target values (pi_probs, rwds, MC_returs) for unroll_n_steps
