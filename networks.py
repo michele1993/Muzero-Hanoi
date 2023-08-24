@@ -16,8 +16,9 @@ class MuZeroNet(nn.Module):
         lr,
         value_s = 1,
         reward_s = 1,
-        h1_s = 256,
-        h2_s = 64
+        h1_s = 64,#256
+        h2_s = 64,
+        weight_decay=1e-4
     ):
         super().__init__()
 
@@ -53,7 +54,7 @@ class MuZeroNet(nn.Module):
             nn.Linear(h1_s, value_s),
         )
 
-        self.optimiser = opt.Adam(self.parameters(),lr)
+        self.optimiser = opt.Adam(self.parameters(),lr, weight_decay=weight_decay)
 
     @torch.no_grad()
     def initial_inference(self,x):
@@ -106,7 +107,6 @@ class MuZeroNet(nn.Module):
         return self.representation_net(x)
 
     def dynamics(self, h, action):
-
         x = torch.cat([h,action],dim=-1)
         h = self.dynamic_net(x)
         rwd_prediction = self.rwd_net(h)

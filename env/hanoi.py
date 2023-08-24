@@ -1,60 +1,63 @@
-''' Reinforcement learning of the Towers of Hanoi game.
-Reference: Watkins and Dayan, "Q-Learning", Machine Learning, 8, 279-292 (1992).'''
+import sys
+sys.path.append('..')
 import numpy as np
 import itertools
+from utils import oneHot_encoding
 
-#NOTE: state representations where the position denotes a different disk while the value denotes the peg, so
-# a 5 disk tower has a 5 dim state space.
 class TowersOfHanoi:
-
+    ''' Implementation of Towers of Hanoi game for RL algorithms'''
     def __init__(self, N, init_state_idx=0):
-        self.discs = N
-        self.states = list(itertools.product(list(range(3)), repeat=self.discs)) # Cartesian product of [0,1,2], N elements at the time 
-        self.goal = tuple([2]*self.discs)
-        self.init_state_idx = init_state_idx
+        self.discs = N # n. of disks to be used
+        self.n_pegs = 3 # NOTE: in tower of Hanoi the number of peg is always 3 (only the n. of disks can increase)
+
+        # ===== Generate the state space =======
+        #NOTE: state representation is a tuple where the position denotes a different disk while the value denotes the peg, so
+        # a 5 disk tower has a 5 dim state space (each dim for a different disk with the value denoting the peg 
+        # since there are 3 pegs, possible values can be {0,1,2}).
+        self.states = list(itertools.product(list(range(self.n_pegs)), repeat=self.discs)) # Cartesian product of [0,1,2], N elements at the time 
+        self.oneH_s_size = self.discs * self.n_pegs
+        ## =====================================
+
+        goal_peg = 2 # intialise indx for the goal peg, 2 = right-most peg
+        self.goal = tuple([goal_peg]*self.discs) # initialise goal in tuple representation
+        self.init_state_idx = init_state_idx # initialise indx for starting position
+
         ## Moves is a tuple where the first entry denotes the peg we are going from and the second entry denotes the peg we are going to 
         ## e.g. [0,1] is moving a disk from the first peg (0) to the second peg (1) 
         ## here we are denoting all possible moves, checking later whether the move is allowd
-        self.moves = list(itertools.permutations(list(range(3)), 2)) # No matter the number of disks, there are always 6 moves overall
+        self.moves = list(itertools.permutations(list(range(self.n_pegs)), 2)) # No matter the number of disks, there are always 6 (legal/illegal) moves 
 
     def step(self,action):
         ## Perform a step in tower of Hanoi, by passing an action indexing one of the 6 available moves
-        ## If an illegal move is chosen, no longer return done=True (i.e. terminate episode) and rwd= 0
-        ## NOTE: don't need to access R matrix, just need to check if move is allowed and whether the goal has been reached
-        ## to determine the rwd
-
+        ## If an illegal move is chosen, give rwd=-1 and remain in current state
         move = self.moves[action]
         illegal_move =  not self.move_allowed(move) # return False if move is allowed
 
         if not illegal_move:
             moved_state = self.get_moved_state(move) 
-            ## If the goal has not been reached (with a legal move) return r=0
-            if moved_state != self.goal:
-                rwd = 0#0.001 # give tiny bonus to encourage legal actions, not good idea for n=5
+            if moved_state != self.goal: ## return rwd=0 if the goal has not been reached (with a legal move)
+                rwd = 0
                 done = False
                 self.c_state = moved_state
-            else: ## return r=100 if goal has been reached
-                rwd = 100 #self.R[self.c_state, moved_state]
+            else: ## return rwd=100 if goal has been reached
+                rwd = 100 
                 done = True
-
         else:
-
-            ## if selected illegal move, terminate the episode and rwd= -1000
-            #rwd = - 1000#np.inf
-            #moved_state= None
-            #done = True
-
-            ## if selected illegal move, don't terminate state but state in the same state and rwd=0
-            rwd = -1 # 0
+            ## if selected illegal move, don't terminate state but state in the same state and rwd=-1
+            rwd = -100/200 # 0
             moved_state = self.c_state 
             done = False
 
-        return moved_state, rwd, done, illegal_move
+        # Compute one-hot representation for new_state to be returned
+        oneH_moved_state = oneHot_encoding(moved_state,max_value=self.n_pegs)
+        return oneH_moved_state, rwd, done, illegal_move
 
     def reset(self):
         ## NOTE: at the moment reset always from same state based on init_s_idx, but later can randomise this
-        self.c_state = self.states[self.init_state_idx] # reset to first state (0,0,0,...) - i.e. all disks on first peg
-        return self.c_state, False # also return done=False
+        ## by randomising self.init_state_idx
+        self.c_state = self.states[self.init_state_idx] # reset to some initial state, e.g., first state (0,0,0,...), all disks on first peg
+        self.oneH_c_state = oneHot_encoding(self.c_state, max_value=self.n_pegs)
+        return self.oneH_c_state, False # also return done=False
 
     def discs_on_peg(self, peg):
         ## Allows to create a list contatining all the disks that are on that specific peg at the moment (i.e. self.state)

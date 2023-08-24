@@ -2,7 +2,7 @@ import torch
 import numpy as np
 
 class Buffer:
-    def __init__(self, size, unroll_n_steps, d_state, d_action, device, priority_exponent=1, importance_sampling_exponent=0):
+    def __init__(self, size, unroll_n_steps, d_state, n_action, device, priority_exponent=1, importance_sampling_exponent=0):
         """ data buffer that holds transitions already organised for unroll_steps during training in np.arrays"""
 
         self.dev = device
@@ -12,14 +12,14 @@ class Buffer:
         #Dimensions
         self.size = size
         self.unroll_n_steps = unroll_n_steps
-        self.d_action = d_action
+        self.n_action = n_action
         self.d_state = d_state
         
         # Storage variables
-        self.states = np.zeros((size,), dtype=int) # NOTE: the state is not unrolled, just need one initial state for each step
+        self.states = np.zeros((size,d_state), dtype=int) #NOTE: state is not unrolled, just need one initial state for each step
         self.rwds = np.zeros((size,unroll_n_steps))
-        self.actions = np.zeros((size, unroll_n_steps), dtype=int)
-        self.pi_probs = np.zeros((size, unroll_n_steps, d_action))
+        self.actions = np.zeros((size, unroll_n_steps), dtype=int) # store action indx
+        self.pi_probs = np.zeros((size, unroll_n_steps, n_action))
         self.mc_returns = np.zeros((size, unroll_n_steps))
 
         self.priorities = np.zeros((size,))
@@ -66,11 +66,10 @@ class Buffer:
         """ return a random batch of size batch_s for each data element"""
         num = len(self)
         indx = np.random.randint(0,num,size=batch_s)
-        states, rwds, actions = self.states[indx], torch.from_numpy(self.rwds[indx]).to(self.dev), torch.from_numpy(self.actions[indx]).to(self.dev) 
-        pi_probs, mc_returns = torch.from_numpy(self.pi_probs[indx]).to(self.dev), torch.from_numpy(self.mc_returns[indx]).to(self.dev)
+        indx = np.random.choice(np.arange(num), size=batch_s, replace=True, p=priorities_probs)
+        states, rwds, actions, pi_probs, mc_returns = self._sample(indx)
 
         return states, rwds, actions, pi_probs, mc_returns
-
 
     def priority_sample(self, batch_s):
         """ return a random batch of size batch_s for each data element"""
@@ -79,8 +78,7 @@ class Buffer:
         priorities_probs = priorities / np.sum(priorities) # compute a probabilities based on priorities
 
         indx = np.random.choice(np.arange(num), size=batch_s, replace=True, p=priorities_probs)
-        states, rwds, actions = self.states[indx], torch.from_numpy(self.rwds[indx]).to(self.dev), torch.from_numpy(self.actions[indx]).to(self.dev) 
-        pi_probs, mc_returns = torch.from_numpy(self.pi_probs[indx]).to(self.dev), torch.from_numpy(self.mc_returns[indx]).to(self.dev)
+        states, rwds, actions, pi_probs, mc_returns = self._sample(indx)
 
         #Compute importance weights to scale gradient of each element in the batch based on priority
         weights = ((1.0 / self.size) / priorities_probs[indx]) ** self._importance_sampling_exponent
@@ -89,6 +87,15 @@ class Buffer:
         weights = torch.from_numpy(weights).to(self.dev)
 
         return states, rwds, actions, pi_probs, mc_returns, indx, weights
+
+    def _sample(self, indx):
+        #Sample transitions from buffer
+        states, rwds = torch.from_numpy(self.states[indx]).to(self.dev), torch.from_numpy(self.rwds[indx]).to(self.dev)
+        actions = torch.from_numpy(self.actions[indx]).to(self.dev) 
+        pi_probs, mc_returns = torch.from_numpy(self.pi_probs[indx]).to(self.dev), torch.from_numpy(self.mc_returns[indx]).to(self.dev)
+
+        return states, rwds, actions, pi_probs, mc_returns
+
 
     def update_priorities(self, indx, new_priorities):
         """ Update priorities in the buffer, after the network has been update"""

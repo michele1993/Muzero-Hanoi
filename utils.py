@@ -2,6 +2,24 @@ import numpy as np
 import logging
 import torch
 
+def oneHot_encoding(x, max_value):
+    """ Provide efficient one-hot encoding for integer vector x, by
+        using a separate one-hot encoding for each dimension of x and then
+        concatenating all the one-hot representations into a single vector 
+        Args:
+            x: integer vector for which need one-hot representatio
+            max_value: max integer value in the all x-space (i.e., across all x)
+        Returns:
+            one-hot vector representation of x
+    """
+    x_dim = len(x)
+    # Create a one-hot vector for each dim(x) of size based on max integer value across x-space
+    oneH_mat = np.zeros((x_dim,max_value))
+    # Fill in the ones based on the value in each dim of x
+    oneH_mat[np.arange(x_dim),x] = 1
+    # Return one-hot vector
+    return oneH_mat.reshape(-1)
+
 def compute_MCreturns(rwds,discount):
     """ Compute MC return based on a list of rwds
     Args:

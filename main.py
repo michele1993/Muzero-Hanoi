@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import logging
+from env.hanoi import TowersOfHanoi
 from MuzeroHanoi import MuzeroHanoi
 from buffer import Buffer
 from utils import setup_logger
@@ -14,13 +15,13 @@ setup_logger(s)
 
 ## ========= Useful variables: ===========
 episodes = 10000
-pre_training = 200
-discount = 0.95#0.8
+pre_training = 10
+discount = 0.8
 dirichlet_alpha = 0.25
 temperature = 1 # 
-n_mcts_simulations = 25 # during acting n. of mcts passes for each step
+n_mcts_simulations = 25 #25 during acting n. of mcts passes for each step
 unroll_n_steps = 5
-batch_s = 2000
+batch_s = 1000
 buffer_size = 50000
 priority_replay = True
 lr = 0.002
@@ -28,13 +29,17 @@ muzero_train_steps=1 # Muzero training steps x env step
 dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print_acc = 100
 
-## ========= Env variables ========
-N = 5 
-max_steps= 1000
-d_action = 6 # n. of action available in each state for Tower of Hanoi (including illegal ones)
+## ========= Initialise env ========
+N = 3 
+max_steps= 200
+n_action = 6 # n. of action available in each state for Tower of Hanoi (including illegal ones)
+env = TowersOfHanoi(N)
+max_steps= max_steps
+s_space_s = env.oneH_s_size 
+## =================================
 
-muzero = MuzeroHanoi(N,discount, dirichlet_alpha, n_mcts_simulations, unroll_n_steps, d_action, batch_s, lr, max_steps, dev)
-buffer = Buffer(buffer_size, unroll_n_steps, d_state=1, d_action=d_action, device=dev) #Note: d_state=1 since store the indexes of states
+muzero = MuzeroHanoi(env,discount, dirichlet_alpha, n_mcts_simulations, unroll_n_steps, n_action, batch_s, lr, max_steps, dev)
+buffer = Buffer(buffer_size, unroll_n_steps, d_state=s_space_s, n_action=n_action, device=dev) 
 
 ## CHANGE: this should all happen within MuzeroHanoi class =========
 accuracy = [] # in terms of mean n. steps to solve task

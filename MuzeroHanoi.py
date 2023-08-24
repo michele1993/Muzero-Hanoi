@@ -4,17 +4,16 @@ import numpy as np
 from utils import compute_MCreturns, adjust_temperature
 from networks import MuZeroNet
 from MCTS.mcts import MCTS
-from env.hanoi import TowersOfHanoi
 
 class MuzeroHanoi():
 
     def __init__(self,
-                 N,
+                 env,
                  discount,
                  dirichlet_alpha,
                  n_mcts_simulations,
                  unroll_n_steps,
-                 d_action,
+                 n_action,
                  batch_s,
                  lr,
                  max_steps,
@@ -25,19 +24,15 @@ class MuzeroHanoi():
         self.unroll_n_steps = unroll_n_steps
         self.dev = device
 
-        ## ========= Initialise env ========
-        self.env = TowersOfHanoi(N)
+        ## ========= Set env variables========
+        self.env = env
         self.max_steps= max_steps
-        self.state_space = self.env.states
-        s_space_s = len(self.state_space)
-        ## We assume a 1-to-1 correspondance between 1hot representations and the order of the original states in the tower of Hanoi
-        ## namely, the vector [1,0,0,...] refers to the first generated state in the tower and so on
-        self.one_hot_s = np.eye(s_space_s) # this creates a matrix whose columns represent a different 1hot vector for each state
+        s_space_s = self.env.oneH_s_size 
         ## =================================
 
         ## ========== Initialise MuZero components =======
         self.mcts = MCTS(discount=self.discount, root_dirichlet_alpha=dirichlet_alpha, n_simulations=n_mcts_simulations, batch_s=batch_s, device=self.dev)
-        self.networks = MuZeroNet(rpr_input_s= s_space_s, action_s = d_action,lr=lr).to(self.dev)
+        self.networks = MuZeroNet(rpr_input_s= s_space_s, action_s = n_action,lr=lr).to(self.dev)
         ## ===================================
 
     
@@ -50,19 +45,14 @@ class MuzeroHanoi():
         episode_piProb = []
         episode_rootQ = []
 
-        c_state,done = self.env.reset()
-        c_s_indx = self.env.init_state_idx
-        
+        oneH_c_state, done = self.env.reset()
         step = 0
+
         while not done:
-
-            oneH_c_s = self.one_hot_s[:,c_s_indx]
-
             # Run MCTS to select the action
-            action, pi_prob, rootNode_Q = self.mcts.run_mcts(oneH_c_s, self.networks, temperature=adjust_temperature(step), deterministic=deterministic)
-
-            n_state, rwd, done, illegal_move = self.env.step(action)
-            n_s_indx = self.state_space.index(n_state) # Compute new c_state index if not done
+            action, pi_prob, rootNode_Q = self.mcts.run_mcts(oneH_c_state, self.networks, temperature=adjust_temperature(step), deterministic=deterministic)
+            # Take a step in env based on MCTS action
+            oneH_n_state, rwd, done, illegal_move = self.env.step(action)
             step +=1
 
             if step == self.max_steps:
@@ -70,14 +60,14 @@ class MuzeroHanoi():
             
             # Store variables for training
             # NOTE: not storing the last terminal state (don't think it is needed)
-            episode_state.append(c_s_indx)
+            episode_state.append(oneH_c_state)
             episode_action.append(action)
             episode_rwd.append(rwd)
             episode_piProb.append(pi_prob)
             episode_rootQ.append(rootNode_Q)
 
             # current state becomes next state
-            c_s_indx = n_s_indx
+            oneH_c_state = oneH_n_state
 
 
         #Compute MC return for each state
@@ -94,10 +84,9 @@ class MuzeroHanoi():
       # if does not work then need to adapt for terminal states not to expand tree of mcts_steps
 
       rwd_loss, value_loss, policy_loss = (0, 0, 0)
+      oneH_states = states
 
-      # Convert states to one hot encoding
-      oneH_states = self.one_hot_s[:,states].T # flip to have shape [batch_s, n_dim]
-      h_states = self.networks.represent(torch.from_numpy(oneH_states).float().to(self.dev))
+      h_states = self.networks.represent(oneH_states.float())
 
       tot_pred_values = []
 
