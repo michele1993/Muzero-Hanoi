@@ -66,7 +66,7 @@ class Buffer:
         """ return a random batch of size batch_s for each data element"""
         num = len(self)
         indx = np.random.randint(0,num,size=batch_s)
-        indx = np.random.choice(np.arange(num), size=batch_s, replace=True, p=priorities_probs)
+        indx = np.random.choice(np.arange(num), size=batch_s, replace=True)
         states, rwds, actions, pi_probs, mc_returns = self._sample(indx)
 
         return states, rwds, actions, pi_probs, mc_returns

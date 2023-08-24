@@ -57,7 +57,7 @@ class TowersOfHanoi:
         ## by randomising self.init_state_idx
         self.c_state = self.states[self.init_state_idx] # reset to some initial state, e.g., first state (0,0,0,...), all disks on first peg
         self.oneH_c_state = oneHot_encoding(self.c_state, n_integers=self.n_pegs)
-        return self.oneH_c_state, False # also return done=False
+        return self.oneH_c_state
 
     def discs_on_peg(self, peg):
         ## Allows to create a list contatining all the disks that are on that specific peg at the moment (i.e. self.state)

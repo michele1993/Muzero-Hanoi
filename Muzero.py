@@ -31,8 +31,8 @@ class Muzero():
         ## ========= Set env variables========
         self.env = env
         self.discount = discount
-        self.max_steps= max_steps
-        s_space_s = self.env.oneH_s_size 
+        self.max_steps = max_steps
+        self.n_action = n_action
 
         ## ======= Set MuZero training variables =======
         self.unroll_n_steps = unroll_n_steps
@@ -41,10 +41,10 @@ class Muzero():
 
         ## ========== Initialise MuZero components =======
         self.mcts = MCTS(discount=self.discount, root_dirichlet_alpha=dirichlet_alpha, n_simulations=n_mcts_simulations, batch_s=batch_s, device=self.dev)
-        self.networks = MuZeroNet(rpr_input_s= s_space_s, action_s = n_action,lr=lr).to(self.dev)
+        self.networks = MuZeroNet(rpr_input_s= s_space_size, action_s = self.n_action,lr=lr).to(self.dev)
 
         ## ========== Initialise buffer ========
-        self.buffer = Buffer(buffer_size, unroll_n_steps, d_state=s_space_size, n_action=n_action, device=self.dev) 
+        self.buffer = Buffer(buffer_size, unroll_n_steps, d_state=s_space_size, n_action=self.n_action, device=self.dev) 
         self.priority_replay = priority_replay
     
     def training_loop(self, episodes, pre_training, print_acc = 100):
@@ -105,14 +105,15 @@ class Muzero():
         episode_piProb = []
         episode_rootQ = []
 
-        oneH_c_state, done = self.env.reset()
+        c_state = self.env.reset()
+        done=False
         step = 0
 
         while not done:
             # Run MCTS to select the action
-            action, pi_prob, rootNode_Q = self.mcts.run_mcts(oneH_c_state, self.networks, temperature=adjust_temperature(step), deterministic=deterministic)
+            action, pi_prob, rootNode_Q = self.mcts.run_mcts(c_state, self.networks, temperature=adjust_temperature(step), deterministic=deterministic)
             # Take a step in env based on MCTS action
-            oneH_n_state, rwd, done, illegal_move = self.env.step(action)
+            n_state, rwd, done, illegal_move = self.env.step(action)
             step +=1
 
             if step == self.max_steps:
@@ -120,14 +121,14 @@ class Muzero():
             
             # Store variables for training
             # NOTE: not storing the last terminal state (don't think it is needed)
-            episode_state.append(oneH_c_state)
+            episode_state.append(c_state)
             episode_action.append(action)
             episode_rwd.append(rwd)
             episode_piProb.append(pi_prob)
             episode_rootQ.append(rootNode_Q)
 
             # current state becomes next state
-            oneH_c_state = oneH_n_state
+            c_state = n_state
 
 
         #Compute MC return for each state
@@ -154,6 +155,7 @@ class Muzero():
           pred_pi_probs, pred_values = self.networks.prediction(h_states)
           # Convert action to 1-hot encoding
           oneH_action = torch.nn.functional.one_hot(actions[:,t], num_classes=self.networks.num_actions).squeeze().to(self.dev)
+          #oneH_action = actions[:,t].squeeze().to(self.dev)
           h_states, pred_rwds = self.networks.dynamics(h_states,oneH_action)
 
           # Scale the gradient for dynamics function by 0.5.
@@ -206,7 +208,7 @@ class Muzero():
         # NOTE: This can cause issues, since a lot of cycles in Hanoi and zero is a real action
         episode_rwd += [0] * self.unroll_n_steps
         #episode_action += [0] * self.unroll_n_steps
-        episode_action += [np.random.randint(0,6)] * self.unroll_n_steps # select uniform random action for unroll_n_steps over the end
+        episode_action += [np.random.randint(0,self.n_action)] * self.unroll_n_steps # select uniform random action for unroll_n_steps over the end
         episode_mc_returns += [0] * self.unroll_n_steps
         absorbing_policy = np.ones_like(episode_piProb[-1]) / len(episode_piProb[-1])
         episode_piProb += [absorbing_policy] * self.unroll_n_steps

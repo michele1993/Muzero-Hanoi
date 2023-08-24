@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import logging
+import gym
 from env.hanoi import TowersOfHanoi
 from Muzero import Muzero
 from utils import setup_logger
@@ -13,9 +14,12 @@ def get_env(env_name):
         s_space_size = env.oneH_s_size 
         n_action = 6 # n. of action available in each state for Tower of Hanoi (including illegal ones)
         max_steps= max_steps
-    else:        
-        raise NotImplementedError
-        #env = gym.make(env_name)
+    else: # Use for gym env with discrete 1d action space        
+        env = gym.make(env_name)
+        assert isinstance(env.action_space,gym.spaces.discrete.Discrete), "Must be discrete action space"
+        s_space_size = env.observation_space.shape[0]
+        n_action = env.action_space.n
+        max_steps = env.spec.max_episode_steps
     return env, s_space_size, n_action, max_steps
 
 
@@ -28,25 +32,27 @@ setup_logger(s)
 
 ## ========= Useful variables: ===========
 episodes = 10000
-pre_training = 100
-discount = 0.95
+pre_training = 500
+discount = 0.99
 dirichlet_alpha = 0.25
-temperature = 1 # 
-n_mcts_simulations = 25 #25 during acting n. of mcts passes for each step
+n_mcts_simulations = 50 #25 during acting n. of mcts passes for each step
 unroll_n_steps = 5
-batch_s = 125#1000
+batch_s = 1000
 buffer_size = 50000
 priority_replay = True
-lr = 0.002
+lr = 0.005
 dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-env_name = 'Hanoi'
+env_n = 1
+if env_n ==0:
+    env_name = 'Hanoi' 
+elif env_n == 1:
+    env_name = "CartPole-v1" 
 
 logging.info(f'Env: {env_name}, Episodes: {episodes}, Pretrain eps: {pre_training}, lr: {lr}, discount: {discount}, n. MCTS: {n_mcts_simulations}, batch size: {batch_s}, Priority Buff: {priority_replay}')
 
 ## ========= Initialise env ========
 env, s_space_size, n_action, max_steps = get_env(env_name)
-
 ## ======== Initialise alg. ========
 muzero = Muzero(env, s_space_size, n_action, max_steps, discount, dirichlet_alpha, n_mcts_simulations, unroll_n_steps, batch_s, lr, buffer_size, priority_replay, dev)
 
