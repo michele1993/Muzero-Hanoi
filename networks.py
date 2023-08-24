@@ -16,7 +16,7 @@ class MuZeroNet(nn.Module):
         lr,
         value_s = 1,
         reward_s = 1,
-        h1_s = 256 # 64 seems to work worse!
+        h1_s = 256, # 64 seems to work worse!
         h2_s = 64,
         weight_decay=1e-4
     ):
