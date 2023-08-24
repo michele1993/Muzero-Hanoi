@@ -28,8 +28,8 @@ setup_logger(s)
 
 ## ========= Useful variables: ===========
 episodes = 10000
-pre_training = 10
-discount = 0.8
+pre_training = 100
+discount = 0.95
 dirichlet_alpha = 0.25
 temperature = 1 # 
 n_mcts_simulations = 25 #25 during acting n. of mcts passes for each step
@@ -42,7 +42,7 @@ dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 env_name = 'Hanoi'
 
-logging.info(f'Env: {env_name}, Episodes: {episodes}, lr: {lr}, discount: {discount}, n. MCTS: {n_mcts_simulations}, batch size: {batch_s}, Priority Buff: {priority_replay}')
+logging.info(f'Env: {env_name}, Episodes: {episodes}, Pretrain eps: {pre_training}, lr: {lr}, discount: {discount}, n. MCTS: {n_mcts_simulations}, batch size: {batch_s}, Priority Buff: {priority_replay}')
 
 ## ========= Initialise env ========
 env, s_space_size, n_action, max_steps = get_env(env_name)
