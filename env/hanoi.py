@@ -49,14 +49,14 @@ class TowersOfHanoi:
             done = False
 
         # Compute one-hot representation for new_state to be returned
-        oneH_moved_state = oneHot_encoding(moved_state,max_value=self.n_pegs)
+        oneH_moved_state = oneHot_encoding(moved_state,n_integers=self.n_pegs)
         return oneH_moved_state, rwd, done, illegal_move
 
     def reset(self):
         ## NOTE: at the moment reset always from same state based on init_s_idx, but later can randomise this
         ## by randomising self.init_state_idx
         self.c_state = self.states[self.init_state_idx] # reset to some initial state, e.g., first state (0,0,0,...), all disks on first peg
-        self.oneH_c_state = oneHot_encoding(self.c_state, max_value=self.n_pegs)
+        self.oneH_c_state = oneHot_encoding(self.c_state, n_integers=self.n_pegs)
         return self.oneH_c_state, False # also return done=False
 
     def discs_on_peg(self, peg):

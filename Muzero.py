@@ -1,42 +1,102 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
+import logging
 from utils import compute_MCreturns, adjust_temperature
 from networks import MuZeroNet
 from MCTS.mcts import MCTS
+from buffer import Buffer
 
-class MuzeroHanoi():
+class Muzero():
 
     def __init__(self,
                  env,
+                 s_space_size,
+                 n_action,
+                 max_steps,
                  discount,
                  dirichlet_alpha,
                  n_mcts_simulations,
                  unroll_n_steps,
-                 n_action,
                  batch_s,
                  lr,
-                 max_steps,
+                 buffer_size,
+                 priority_replay,
                  device,
+                 muzero_train_steps=1
                 ):
 
-        self.discount = discount
-        self.unroll_n_steps = unroll_n_steps
         self.dev = device
 
         ## ========= Set env variables========
         self.env = env
+        self.discount = discount
         self.max_steps= max_steps
         s_space_s = self.env.oneH_s_size 
-        ## =================================
+
+        ## ======= Set MuZero training variables =======
+        self.unroll_n_steps = unroll_n_steps
+        self.muzero_train_steps = muzero_train_steps # Muzero training steps x env step
+        self.batch_s = batch_s
 
         ## ========== Initialise MuZero components =======
         self.mcts = MCTS(discount=self.discount, root_dirichlet_alpha=dirichlet_alpha, n_simulations=n_mcts_simulations, batch_s=batch_s, device=self.dev)
         self.networks = MuZeroNet(rpr_input_s= s_space_s, action_s = n_action,lr=lr).to(self.dev)
-        ## ===================================
 
+        ## ========== Initialise buffer ========
+        self.buffer = Buffer(buffer_size, unroll_n_steps, d_state=s_space_size, n_action=n_action, device=self.dev) 
+        self.priority_replay = priority_replay
     
-    def play_game(self, temperature, deterministic=False):
+    def training_loop(self, episodes, pre_training, print_acc = 100):
+
+        logging.info('Training started \n')
+
+        accuracy = [] # in terms of mean n. steps to solve task
+        tot_accuracy = [] 
+        value_loss,rwd_loss,pi_loss = [],[],[]
+        for ep in range(1,episodes):
+
+            # Play one episode
+            steps, states, rwds, actions, pi_probs, mc_returns, priorities = self._play_game(deterministic=False)
+
+            # Store episode in buffer only if successful
+            if mc_returns[-1,0] > 0:
+                self.buffer.add(states, rwds, actions, pi_probs, mc_returns, priorities)
+            accuracy.append(steps)
+
+            # If time to train, train MuZero network
+            if ep > pre_training:
+                for t in range(self.muzero_train_steps):
+                    if self.priority_replay:
+                        states, rwds, actions, pi_probs, mc_returns, priority_indx, priority_w = self.buffer.priority_sample(self.batch_s)
+                    else:
+                        states, rwds, actions, pi_probs, mc_returns = self.buffer.uniform_sample(self.batch_s)
+                        priority_w, priority_indx = None,None
+
+                    # Update network
+                    new_priority_w, v_loss, r_loss, p_loss  = self._update(states, rwds, actions, pi_probs, mc_returns, priority_w)
+                    # Update buffer priorities 
+                    self.buffer.update_priorities(priority_indx, new_priority_w)
+
+                value_loss.append(v_loss)
+                rwd_loss.append(r_loss)
+                pi_loss.append(p_loss)
+
+            if ep % print_acc == 0:
+                mean_acc = sum(accuracy) / print_acc
+                logging.info(f'| Episode: {ep} | Mean accuracy: {mean_acc} \n')
+                print("Mean acc: ", mean_acc)
+                print("V loss: ", sum(value_loss)/print_acc)
+                print("rwd loss: ", sum(rwd_loss)/print_acc)
+                print("Pi loss: ", sum(pi_loss)/print_acc)
+                print("\n")
+                tot_accuracy.append(mean_acc)
+                accuracy = []
+                value_loss,rwd_loss,pi_loss = [],[],[]
+
+        return tot_accuracy
+    
+    def _play_game(self, deterministic=False):
 
         # Initialise list to store game variables
         episode_state = []
@@ -79,7 +139,7 @@ class MuzeroHanoi():
         
         return step, states, rwds, actions, pi_probs, mc_returns, priorities   
 
-    def train(self, states, rwds, actions, pi_probs, mc_returns, priority_w):
+    def _update(self, states, rwds, actions, pi_probs, mc_returns, priority_w):
       # TRIAL: expands all states (including final ones) of mcts_steps for simplicty for steps after terminal just map everything to zero   
       # if does not work then need to adapt for terminal states not to expand tree of mcts_steps
 

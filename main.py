@@ -2,9 +2,22 @@ import torch
 import numpy as np
 import logging
 from env.hanoi import TowersOfHanoi
-from MuzeroHanoi import MuzeroHanoi
-from buffer import Buffer
+from Muzero import Muzero
 from utils import setup_logger
+
+def get_env(env_name):
+    if env_name == 'Hanoi':
+        N = 3 
+        env = TowersOfHanoi(N)
+        max_steps= 200
+        s_space_size = env.oneH_s_size 
+        n_action = 6 # n. of action available in each state for Tower of Hanoi (including illegal ones)
+        max_steps= max_steps
+    else:        
+        raise NotImplementedError
+        #env = gym.make(env_name)
+    return env, s_space_size, n_action, max_steps
+
 
 ## ======= Set seeds for debugging =======
 s = 11 # seed
@@ -25,68 +38,17 @@ batch_s = 1000
 buffer_size = 50000
 priority_replay = True
 lr = 0.002
-muzero_train_steps=1 # Muzero training steps x env step
 dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print_acc = 100
+
+env_name = 'Hanoi'
+
+logging.info(f'Env: {env_name}, Episodes: {episodes}, lr: {lr}, discount: {discount}, n. MCTS: {n_mcts_simulations}, batch size: {batch_s}, Priority Buff: {priority_replay}')
 
 ## ========= Initialise env ========
-N = 3 
-max_steps= 200
-n_action = 6 # n. of action available in each state for Tower of Hanoi (including illegal ones)
-env = TowersOfHanoi(N)
-max_steps= max_steps
-s_space_s = env.oneH_s_size 
-## =================================
+env, s_space_size, n_action, max_steps = get_env(env_name)
 
-muzero = MuzeroHanoi(env,discount, dirichlet_alpha, n_mcts_simulations, unroll_n_steps, n_action, batch_s, lr, max_steps, dev)
-buffer = Buffer(buffer_size, unroll_n_steps, d_state=s_space_s, n_action=n_action, device=dev) 
+## ======== Initialise alg. ========
+muzero = Muzero(env, s_space_size, n_action, max_steps, discount, dirichlet_alpha, n_mcts_simulations, unroll_n_steps, batch_s, lr, buffer_size, priority_replay, dev)
 
-## CHANGE: this should all happen within MuzeroHanoi class =========
-accuracy = [] # in terms of mean n. steps to solve task
-value_loss,rwd_loss,pi_loss = [],[],[]
-
-#steps, states, rwds, actions, pi_probs, mc_returns = muzero.play_game(temperature,deterministic=False)
-
-logging.info('Training started \n')
-for ep in range(1,episodes):
-
-    # Play one episode
-    steps, states, rwds, actions, pi_probs, mc_returns, priorities = muzero.play_game(temperature,deterministic=False)
-
-    # Store episode in buffer only if successful
-    if mc_returns[-1,0] > 0:
-        buffer.add(states, rwds, actions, pi_probs, mc_returns, priorities)
-    accuracy.append(steps)
-
-    # If time to train, train MuZero network
-    if ep > pre_training:
-        for t in range(muzero_train_steps):
-            if priority_replay:
-                states, rwds, actions, pi_probs, mc_returns, priority_indx, priority_w = buffer.priority_sample(batch_s)
-            else:
-                states, rwds, actions, pi_probs, mc_returns = buffer.uniform_sample(batch_s)
-                priority_w, priority_indx = None,None
-
-            # Train network
-            new_priority_w, v_loss, r_loss, p_loss  = muzero.train(states, rwds, actions, pi_probs, mc_returns, priority_w)
-            # Update buffer priorities 
-            buffer.update_priorities(priority_indx, new_priority_w)
-
-        value_loss.append(v_loss)
-        rwd_loss.append(r_loss)
-        pi_loss.append(p_loss)
-
-
-    if ep % print_acc == 0:
-        mean_acc = sum(accuracy) / print_acc
-        logging.info(f'| Episode: {ep} | Mean accuracy: {mean_acc} \n')
-        print("Mean acc: ", mean_acc)
-        print("V loss: ", sum(value_loss)/print_acc)
-        print("rwd loss: ", sum(rwd_loss)/print_acc)
-        print("Pi loss: ", sum(pi_loss)/print_acc)
-        print("\n")
-        accuracy = []
-        value_loss,rwd_loss,pi_loss = [],[],[]
-
-steps, states, rwds, actions, pi_probs, mc_returns, _ = muzero.play_game(temperature,deterministic=True)
-print(steps)
+## ======== Run training ==========
+tot_acc = muzero.training_loop(episodes, pre_training)

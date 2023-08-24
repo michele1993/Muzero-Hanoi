@@ -2,20 +2,20 @@ import numpy as np
 import logging
 import torch
 
-def oneHot_encoding(x, max_value):
+def oneHot_encoding(x, n_integers):
     """ Provide efficient one-hot encoding for integer vector x, by
         using a separate one-hot encoding for each dimension of x and then
         concatenating all the one-hot representations into a single vector 
         Args:
             x: integer vector for which need one-hot representatio
-            max_value: max integer value in the all x-space (i.e., across all x)
+            n_integers: number of possible integer values in the entire x-space (i.e., across all x)
         Returns:
             one-hot vector representation of x
     """
     x_dim = len(x)
-    # Create a one-hot vector for each dim(x) of size based on max integer value across x-space
-    oneH_mat = np.zeros((x_dim,max_value))
-    # Fill in the ones based on the value in each dim of x
+    # Create a one-hot vector for each dim(x) of size based on n. of possible integer values across x-space
+    oneH_mat = np.zeros((x_dim,n_integers))
+    # Fill in the 1 based on the value in each dim of x
     oneH_mat[np.arange(x_dim),x] = 1
     # Return one-hot vector
     return oneH_mat.reshape(-1)
