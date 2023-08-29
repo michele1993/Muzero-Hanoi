@@ -16,7 +16,7 @@ class Buffer:
         self.d_state = d_state
         
         # Storage variables
-        self.states = np.zeros((size,d_state), dtype=int) #NOTE: state is not unrolled, just need one initial state for each step
+        self.states = np.zeros((size,d_state)) #NOTE: state is not unrolled, just need one initial state for each step
         self.rwds = np.zeros((size,unroll_n_steps))
         self.actions = np.zeros((size, unroll_n_steps), dtype=int) # store action indx
         self.pi_probs = np.zeros((size, unroll_n_steps, n_action))

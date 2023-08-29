@@ -13,48 +13,57 @@ class MuZeroNet(nn.Module):
         self,
         rpr_input_s,
         action_s,
+        reprs_output_size,
         lr,
-        value_s = 1,
         reward_s = 1,
         h1_s = 256, # 64 seems to work worse!
-        h2_s = 64,
-        weight_decay=1e-4
+        weight_decay=1e-4,
+        TD_return=False
     ):
         super().__init__()
 
         self.num_actions = action_s
+        self.TD_return = TD_return
+
+        #NOTE: currently use support only for value prediction and not for rwd
+        if TD_return:
+            self.support_size=25
+        else:        
+            self.support_size=1
 
         self.representation_net = nn.Sequential(
             nn.Linear(rpr_input_s,h1_s),
             nn.ReLU(),
-            nn.Linear(h1_s, h2_s),
+            nn.Linear(h1_s, reprs_output_size),
+            #nn.Tanh(), # NOTE: trial, instead of normalise latent activation, map everything between [-1,1] with Tanh
         )
 
         self.dynamic_net = nn.Sequential(
-            nn.Linear(h2_s + action_s, h1_s),
+            nn.Linear(reprs_output_size + action_s, h1_s),
             nn.ReLU(),
-            nn.Linear(h1_s, h2_s),
+            nn.Linear(h1_s, reprs_output_size),
+            #nn.Tanh(), # NOTE: trial, instead of normalise latent activation, map everything between [-1,1] with Tanh
         )
 
         self.rwd_net = nn.Sequential(
-            nn.Linear(h2_s, h1_s),
+            nn.Linear(reprs_output_size, h1_s),
             nn.ReLU(),
             nn.Linear(h1_s, reward_s)
         )
 
         self.policy_net = nn.Sequential(
-            nn.Linear(h2_s, h1_s),
+            nn.Linear(reprs_output_size, h1_s),
             nn.ReLU(),
             nn.Linear(h1_s, action_s),
         )
 
         self.value_net = nn.Sequential(
-            nn.Linear(h2_s, h1_s),
+            nn.Linear(reprs_output_size, h1_s),
             nn.ReLU(),
-            nn.Linear(h1_s, value_s),
+            nn.Linear(h1_s, self.support_size),
         )
 
-        self.optimiser = opt.Adam(self.parameters(),lr, weight_decay=weight_decay)
+        self.optimiser = opt.Adam(self.parameters(),lr)#, weight_decay=weight_decay)
 
     @torch.no_grad()
     def initial_inference(self,x):
@@ -66,8 +75,8 @@ class MuZeroNet(nn.Module):
 
         # Prediction
         pi_logits, value = self.prediction(h_state)
-        pi_probs = F.softmax(pi_logits,dim=-1) # NOTE: dim ?
 
+        pi_probs = F.softmax(pi_logits,dim=-1) # NOTE: dim ?
         rwd = torch.zeros_like(value) # NOTE: Not sure why it doesn't predict rwd for initial inference
 
         pi_probs = pi_probs.squeeze(0).cpu().numpy()
@@ -88,8 +97,8 @@ class MuZeroNet(nn.Module):
 
         # Prediction
         pi_logits, value = self.prediction(h_state)
-        pi_probs = F.softmax(pi_logits,dim=-1) # NOTE: dim ?
 
+        pi_probs = F.softmax(pi_logits,dim=-1) # NOTE: dim ?
         pi_probs = pi_probs.squeeze(0).cpu().numpy()
         value = value.squeeze(0).cpu().item()
         rwd = rwd.squeeze(0).cpu().item()
@@ -116,6 +125,47 @@ class MuZeroNet(nn.Module):
 
         pi_logits = self.policy_net(h)
 
-        value_prediction = self.value_net(h)
+        value_logits = self.value_net(h)
 
-        return pi_logits, value_prediction
+        # Use transformation with support vector only for TD-returns
+        if self.TD_return:
+            value_logits = self.logits_to_transformed_expected_value(value_logits)
+
+        return pi_logits, value_logits
+
+    def logits_to_transformed_expected_value(self, logits):
+        """
+        Given raw logits (could be either reward or state value), do the following operations:
+            - apply softmax
+            - compute the expected scalar value
+            - apply `signed_parabolic` transform function
+
+        Args:
+            logits: 2D tensor raw logits of the network output, shape [B, N].
+            supports: vector of support for the computeation, shape [N,].
+
+        Returns:
+            a 2D tensor which represent the transformed expected value, shape [B, 1].
+        """
+        max_value = (self.support_size -1) // 2
+        min_value = - max_value
+
+        # Compute expected scalar
+        probs = torch.softmax(logits, dim=-1)
+        x = self._transform_from_2hot(probs, min_value, max_value)
+
+        # Apply transform function
+        x = self._signed_parabolic(x)
+        return x
+
+    def _transform_from_2hot(self, probs, min_value, max_value):
+        """Transforms from a categorical distribution to a scalar."""
+        support_space = torch.linspace(min_value,max_value, self.support_size)
+        support_space = support_space.expand_as(probs)
+        scalar = torch.sum(probs * support_space, dim=-1, keepdim=True)
+        return scalar
+
+    def _signed_parabolic(self, x, eps=1e-3):
+        """Signed parabolic transform, inverse of signed_hyperbolic."""
+        z = torch.sqrt(1 + 4 * eps * (eps + 1 + torch.abs(x))) / 2 / eps - 1 / 2 / eps
+        return torch.sign(x) * (torch.square(z) - 1)
