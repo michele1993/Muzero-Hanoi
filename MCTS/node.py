@@ -48,7 +48,7 @@ class Node:
         self.is_expanded = True        
     
 
-    def backup(self, value, config):
+    def backup(self, value, config, min_max_stats):
         """Update statistics of the this node and all travesed parent nodes.
         Args:
             value: the predicted state value from NN network.
@@ -61,11 +61,14 @@ class Node:
             current.W += value
             current.N +=1
 
+            ## Not clear why need to update since the min/max bounds set at initialisation
+            min_max_stats.update(current.rwd + config.discount * current.Q)
+
             value = current.rwd + config.discount * value
             current = current.parent
  
 
-    def best_child(self, config):
+    def best_child(self, config, min_max_stats):
         """ Returns best child node with maximum action value Q plus an upper confidence bound U.
         Args:
             config: a MCTS instance.
@@ -76,14 +79,14 @@ class Node:
         if not self.is_expanded:
             raise ValueError('Expand leaf node first.')
 
-        ucb_results = self.child_Q(config) + self.child_U(config)
+        ucb_results = self.child_Q(config, min_max_stats) + self.child_U(config)
 
         # Break ties when have multiple 'max' value.
         a_indx = np.random.choice(np.where(ucb_results == ucb_results.max())[0])
 
         return self.children[a_indx] # return best child
 
-    def child_Q(self, config):
+    def child_Q(self, config, min_max_stats):
         """Returns a 1D numpy.array contains mean action value for all children.
         Returns:
             a 1D numpy.array contains Q values for each of the children nodes.
@@ -93,10 +96,10 @@ class Node:
         Q = []
         for child in self.children:
             if child.N >0:
-                Q.append(child.rwd + config.discount * child.Q)
+                Q.append(min_max_stats.normalize(child.rwd + config.discount * child.Q))
             else:
                 Q.append(0)
-        return np.array(Q)
+        return np.array(Q,dtype=np.float32)
     
     def child_U(self, config):
         """ Returns a 1D numpy.array contains UCB score for all children (i.e., the exploration bonus).
@@ -109,7 +112,7 @@ class Node:
             # child.N refers to the child count, so how many times the action leading to the child has been taken
             w = (( math.log((self.N + config.pb_c_base + 1) / config.pb_c_base) + config.pb_c_init) * math.sqrt(self.N) / (child.N +1))
             U.append(child.prior * w)
-        return np.array(U)    
+        return np.array(U,dtype=np.float32)    
 
     @property 
     def Q(self):
@@ -122,7 +125,7 @@ class Node:
     @property
     def child_N(self):
         """Returns a 1D numpy.array contains visits count for all child."""
-        return np.array([child.N for child in self.children])
+        return np.array([child.N for child in self.children],dtype=np.int32)
 
     @property
     def has_parent(self):

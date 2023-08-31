@@ -16,13 +16,13 @@ class Buffer:
         self.d_state = d_state
         
         # Storage variables
-        self.states = np.zeros((size,d_state)) #NOTE: state is not unrolled, just need one initial state for each step
-        self.rwds = np.zeros((size,unroll_n_steps))
-        self.actions = np.zeros((size, unroll_n_steps), dtype=int) # store action indx
-        self.pi_probs = np.zeros((size, unroll_n_steps, n_action))
-        self.mc_returns = np.zeros((size, unroll_n_steps))
+        self.states = np.zeros((size,d_state),dtype=np.float32) #NOTE: state is not unrolled, just need one initial state for each step
+        self.rwds = np.zeros((size,unroll_n_steps),dtype=np.float32)
+        self.actions = np.zeros((size, unroll_n_steps), dtype=np.int64) # store action indx
+        self.pi_probs = np.zeros((size, unroll_n_steps, n_action),dtype=np.float32)
+        self.mc_returns = np.zeros((size, unroll_n_steps),dtype=np.float32)
 
-        self.priorities = np.zeros((size,))
+        self.priorities = np.zeros((size,),dtype=np.float32)
 
         # Other attributes
         self.ptr = 0 # counter for n. transitions currently inside buffer
@@ -65,8 +65,7 @@ class Buffer:
     def uniform_sample(self, batch_s):
         """ return a random batch of size batch_s for each data element"""
         num = len(self)
-        indx = np.random.randint(0,num,size=batch_s)
-        indx = np.random.choice(np.arange(num), size=batch_s, replace=True)
+        indx = np.random.choice(np.arange(num), size=batch_s, replace=True).astype(np.int64)
         states, rwds, actions, pi_probs, mc_returns = self._sample(indx)
 
         return states, rwds, actions, pi_probs, mc_returns
@@ -77,22 +76,22 @@ class Buffer:
         priorities = self.priorities[:num]**self._priority_exponent # take priorities for all elements from buffer
         priorities_probs = priorities / np.sum(priorities) # compute a probabilities based on priorities
 
-        indx = np.random.choice(np.arange(num), size=batch_s, replace=True, p=priorities_probs)
+        indx = np.random.choice(np.arange(num), size=batch_s, replace=True, p=priorities_probs).astype(np.int64)
         states, rwds, actions, pi_probs, mc_returns = self._sample(indx)
 
         #Compute importance weights to scale gradient of each element in the batch based on priority
         weights = ((1.0 / self.size) / priorities_probs[indx]) ** self._importance_sampling_exponent
         weights /= np.max(weights)
 
-        weights = torch.from_numpy(weights).to(self.dev)
+        weights = torch.from_numpy(weights).to(self.dev, dtype=torch.float32)
 
         return states, rwds, actions, pi_probs, mc_returns, indx, weights
 
     def _sample(self, indx):
         #Sample transitions from buffer
-        states, rwds = torch.from_numpy(self.states[indx]).to(self.dev), torch.from_numpy(self.rwds[indx]).to(self.dev)
-        actions = torch.from_numpy(self.actions[indx]).to(self.dev) 
-        pi_probs, mc_returns = torch.from_numpy(self.pi_probs[indx]).to(self.dev), torch.from_numpy(self.mc_returns[indx]).to(self.dev)
+        states, rwds = torch.from_numpy(self.states[indx]).to(self.dev, dtype=torch.float32), torch.from_numpy(self.rwds[indx]).to(self.dev, dtype=torch.float32)
+        actions = torch.from_numpy(self.actions[indx]).to(self.dev, dtype=torch.long) 
+        pi_probs, mc_returns = torch.from_numpy(self.pi_probs[indx]).to(self.dev, dtype=torch.float32), torch.from_numpy(self.mc_returns[indx]).to(self.dev, dtype=torch.float32)
 
         return states, rwds, actions, pi_probs, mc_returns
 

@@ -8,9 +8,9 @@ from utils import setup_logger
 
 def get_env(env_name):
     if env_name == 'Hanoi':
-        N = 3 
+        N = 5 
         env = TowersOfHanoi(N)
-        max_steps=200
+        max_steps=1000
         s_space_size = env.oneH_s_size 
         n_action = 6 # n. of action available in each state for Tower of Hanoi (including illegal ones)
         max_steps= max_steps
@@ -24,39 +24,46 @@ def get_env(env_name):
 
 
 ## ======= Set seeds for debugging =======
-s = 11 # seed
+s = 1 # seed
 torch.manual_seed(s)
 np.random.seed(s)
 setup_logger(s)
-## =======================
+
+## ======= Select the environment ========
+env_n = 1 # 0: 'Hanoi', 1: 'CartPole'
 
 ## ========= Useful variables: ===========
-episodes = 10000
-pre_training = 100
-discount = 0.8
+episodes = 100000
+min_replay_size = 5000
 dirichlet_alpha = 0.25
 n_ep_x_loop = 1#20
-n_mcts_simulations = 25 #11 during acting n. of mcts passes for each step
-n_update_x_loop = 1 #20
+n_update_x_loop = 1#20
 unroll_n_steps = 5
-batch_s = 2000 #512
+TD_return = True
+n_TD_step = 10
 buffer_size = 50000 #int(1e6)
 priority_replay = True
-lr = 0.002
 dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-env_n = 0
 if env_n ==0:
     env_name = 'Hanoi' 
+    batch_s = 2000 #512
+    discount = 0.8
+    n_mcts_simulations = 25 #11 during acting n. of mcts passes for each step
+    lr = 0.002
 elif env_n == 1:
     env_name = "CartPole-v1" 
+    batch_s = 256
+    discount = 0.997
+    n_mcts_simulations=50
+    lr=0.005
 
-logging.info(f'Env: {env_name}, Episodes: {episodes}, Pretrain eps: {pre_training}, lr: {lr}, discount: {discount}, n. MCTS: {n_mcts_simulations}, batch size: {batch_s}, Priority Buff: {priority_replay}')
+logging.info(f'Env: {env_name}, Episodes: {episodes}, Min replay size: {min_replay_size}, lr: {lr}, discount: {discount}, n. MCTS: {n_mcts_simulations}, batch size: {batch_s}, TD_return: {TD_return}, Priority Buff: {priority_replay}')
 
 ## ========= Initialise env ========
 env, s_space_size, n_action, max_steps = get_env(env_name)
 ## ======== Initialise alg. ========
-muzero = Muzero(env=env, s_space_size=s_space_size, n_action=n_action, max_steps=max_steps, discount=discount, dirichlet_alpha=dirichlet_alpha, n_mcts_simulations=n_mcts_simulations, unroll_n_steps=unroll_n_steps, batch_s=batch_s, lr=lr, buffer_size=buffer_size, priority_replay=priority_replay, device=dev, n_ep_x_loop=n_ep_x_loop, n_update_x_loop=n_update_x_loop)
+muzero = Muzero(env=env, s_space_size=s_space_size, n_action=n_action, max_steps=max_steps, discount=discount, dirichlet_alpha=dirichlet_alpha, n_mcts_simulations=n_mcts_simulations, unroll_n_steps=unroll_n_steps, batch_s=batch_s, TD_return=TD_return,n_TD_step=n_TD_step, lr=lr, buffer_size=buffer_size, priority_replay=priority_replay, device=dev, n_ep_x_loop=n_ep_x_loop, n_update_x_loop=n_update_x_loop)
 
 ## ======== Run training ==========
-tot_acc = muzero.training_loop(episodes, pre_training)
+tot_acc = muzero.training_loop(episodes, min_replay_size)

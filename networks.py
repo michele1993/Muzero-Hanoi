@@ -13,21 +13,22 @@ class MuZeroNet(nn.Module):
         self,
         rpr_input_s,
         action_s,
-        reprs_output_size,
         lr,
         reward_s = 1,
         h1_s = 256, # 64 seems to work worse!
+        reprs_output_size=64,
         weight_decay=1e-4,
         TD_return=False
     ):
         super().__init__()
 
+        #TD_return = False ## NOTE: TRIAL DELETE!!!!
         self.num_actions = action_s
         self.TD_return = TD_return
 
-        #NOTE: currently use support only for value prediction and not for rwd
+        #NOTE: currently use support for both value and rwd prediction 
         if TD_return:
-            self.support_size=25
+            self.support_size=33
         else:        
             self.support_size=1
 
@@ -35,20 +36,18 @@ class MuZeroNet(nn.Module):
             nn.Linear(rpr_input_s,h1_s),
             nn.ReLU(),
             nn.Linear(h1_s, reprs_output_size),
-            #nn.Tanh(), # NOTE: trial, instead of normalise latent activation, map everything between [-1,1] with Tanh
         )
 
         self.dynamic_net = nn.Sequential(
             nn.Linear(reprs_output_size + action_s, h1_s),
             nn.ReLU(),
             nn.Linear(h1_s, reprs_output_size),
-            #nn.Tanh(), # NOTE: trial, instead of normalise latent activation, map everything between [-1,1] with Tanh
         )
 
         self.rwd_net = nn.Sequential(
             nn.Linear(reprs_output_size, h1_s),
             nn.ReLU(),
-            nn.Linear(h1_s, reward_s)
+            nn.Linear(h1_s, self.support_size)
         )
 
         self.policy_net = nn.Sequential(
@@ -113,13 +112,20 @@ class MuZeroNet(nn.Module):
         self.optimiser.step()
 
     def represent(self,x):
-        return self.representation_net(x)
+        h_state = self.representation_net(x)
+        norm_h_state = self.normalize_h_state(h_state)
+        return norm_h_state
 
-    def dynamics(self, h, action):
-        x = torch.cat([h,action],dim=-1)
-        h = self.dynamic_net(x)
-        rwd_prediction = self.rwd_net(h)
-        return h, rwd_prediction
+    def dynamics(self, h_state, action):
+        x = torch.cat([h_state,action],dim=-1)
+        new_h_state = self.dynamic_net(x)
+        rwd_prediction = self.rwd_net(new_h_state)
+
+        if self.TD_return:
+            rwd_prediction = self.logits_to_transformed_expected_value(rwd_prediction)
+
+        norm_h_state = self.normalize_h_state(new_h_state)
+        return norm_h_state, rwd_prediction
 
     def prediction(self, h):
 
@@ -169,3 +175,9 @@ class MuZeroNet(nn.Module):
         """Signed parabolic transform, inverse of signed_hyperbolic."""
         z = torch.sqrt(1 + 4 * eps * (eps + 1 + torch.abs(x))) / 2 / eps - 1 / 2 / eps
         return torch.sign(x) * (torch.square(z) - 1)
+
+    def normalize_h_state(self, h_state):
+        _min = h_state.min(dim=-1, keepdim=True)[0]
+        _max = h_state.max(dim=-1, keepdim=True)[0]
+        return (h_state - _min) / (_max - _min + 1e-8) ## Add small constant to avoid division by 0
+
