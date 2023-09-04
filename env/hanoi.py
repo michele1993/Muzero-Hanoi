@@ -36,7 +36,7 @@ class TowersOfHanoi:
         if not illegal_move:
             moved_state = self.get_moved_state(move) 
             if moved_state != self.goal: ## return rwd=0 if the goal has not been reached (with a legal move)
-                rwd = -1
+                rwd = 0
                 done = False
                 self.c_state = moved_state
             else: ## return rwd=100 if goal has been reached
@@ -44,7 +44,7 @@ class TowersOfHanoi:
                 done = True
         else:
             ## if selected illegal move, don't terminate state but state in the same state and rwd=-1
-            rwd = -1#-100/200 # 0
+            rwd = -100/1000 
             moved_state = self.c_state 
             done = False
 

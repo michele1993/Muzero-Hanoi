@@ -8,9 +8,9 @@ from utils import setup_logger
 
 def get_env(env_name):
     if env_name == 'Hanoi':
-        N = 5 
+        N = 3 
         env = TowersOfHanoi(N)
-        max_steps=1000
+        max_steps=200
         s_space_size = env.oneH_s_size 
         n_action = 6 # n. of action available in each state for Tower of Hanoi (including illegal ones)
         max_steps= max_steps
@@ -30,7 +30,7 @@ np.random.seed(s)
 setup_logger(s)
 
 ## ======= Select the environment ========
-env_n = 1 # 0: 'Hanoi', 1: 'CartPole'
+env_n = 0 # 0: 'Hanoi', 1: 'CartPole'
 
 ## ========= Useful variables: ===========
 episodes = 100000
@@ -47,7 +47,7 @@ dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 if env_n ==0:
     env_name = 'Hanoi' 
-    batch_s = 2000 #512
+    batch_s = 256 #512
     discount = 0.8
     n_mcts_simulations = 25 #11 during acting n. of mcts passes for each step
     lr = 0.002

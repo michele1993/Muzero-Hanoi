@@ -66,7 +66,7 @@ class Muzero():
             ep_accuracy = []
             for ep in range(self.n_ep_x_loop):
                 # Play one episode
-                steps, states, rwds, actions, pi_probs, returns, priorities = self._play_game(deterministic=False)
+                steps, states, rwds, actions, pi_probs, returns, priorities = self._play_game(episode=n*self.n_ep_x_loop, deterministic=False)
                 ep_accuracy.append(steps)
                 # Store episode in buffer only if successful
                 if returns[-1,0] > 0:
@@ -91,7 +91,7 @@ class Muzero():
                 rwd_loss.append(r_loss)
                 pi_loss.append(p_loss)
 
-            if n % print_acc == 0:
+            if n * self.n_ep_x_loop % print_acc == 0:
                 mean_acc = sum(accuracy) / print_acc
                 logging.info(f'| Training Loop: {n} | Mean accuracy: {mean_acc} \n')
                 logging.info(f"Mean acc:  {mean_acc}")
@@ -105,7 +105,7 @@ class Muzero():
 
         return tot_accuracy
     
-    def _play_game(self, deterministic=False):
+    def _play_game(self, episode, deterministic=False):
 
         # Initialise list to store game variables
         episode_state = []
@@ -120,9 +120,11 @@ class Muzero():
 
         while not done:
             # Run MCTS to select the action
-            action, pi_prob, rootNode_Q = self.mcts.run_mcts(c_state, self.networks, temperature=adjust_temperature(step), deterministic=deterministic)
+            action, pi_prob, rootNode_Q = self.mcts.run_mcts(c_state, self.networks, temperature=adjust_temperature(episode), deterministic=deterministic)
             # Take a step in env based on MCTS action
             n_state, rwd, done, illegal_move = self.env.step(action)
+
+            #if not illegal_move:
             step +=1
 
             if step == self.max_steps:

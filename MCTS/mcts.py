@@ -18,7 +18,7 @@ class MCTS():
         root_exploration_eps = 0.25,
         known_bounds = [],
     ):
-        self.min_max_stats = MinMaxStats(None,None)
+        self.min_max_stats = MinMaxStats()
         self.pb_c_base = 19652
         self.pb_c_init = 1.25
 
