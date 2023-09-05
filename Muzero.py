@@ -13,7 +13,6 @@ class Muzero():
                  env,
                  s_space_size,
                  n_action,
-                 max_steps,
                  discount,
                  dirichlet_alpha,
                  n_mcts_simulations,
@@ -35,7 +34,6 @@ class Muzero():
         self.env = env
         self.n_ep_x_loop = n_ep_x_loop # how many env eps we collect for each training loop
         self.discount = discount
-        self.max_steps = max_steps
         self.n_action = n_action
 
         ## ======= Set MuZero training variables =======
@@ -48,7 +46,7 @@ class Muzero():
         ## ========== Initialise MuZero components =======
         self.mcts = MCTS(discount=self.discount, root_dirichlet_alpha=dirichlet_alpha, n_simulations=n_mcts_simulations, batch_s=batch_s, device=self.dev)
         # NOTE: use latent reprs size = env state size (i.e., reasonable)
-        self.networks = MuZeroNet(rpr_input_s= s_space_size, action_s = self.n_action, lr=lr,TD_return=TD_return).to(self.dev) # NOTE: reprs_output_size
+        self.networks = MuZeroNet(rpr_input_s= s_space_size, action_s = self.n_action, lr=lr,TD_return=TD_return).to(self.dev) 
 
         ## ========== Initialise buffer ========
         self.buffer = Buffer(buffer_size, unroll_n_steps, d_state=s_space_size, n_action=self.n_action, device=self.dev) 
@@ -123,12 +121,7 @@ class Muzero():
             action, pi_prob, rootNode_Q = self.mcts.run_mcts(c_state, self.networks, temperature=adjust_temperature(episode), deterministic=deterministic)
             # Take a step in env based on MCTS action
             n_state, rwd, done, illegal_move = self.env.step(action)
-
-            #if not illegal_move:
             step +=1
-
-            if step == self.max_steps:
-               done = True
             
             # Store variables for training
             # NOTE: not storing the last terminal state (don't think it is needed)

@@ -9,11 +9,10 @@ from utils import setup_logger
 def get_env(env_name):
     if env_name == 'Hanoi':
         N = 3 
-        env = TowersOfHanoi(N)
         max_steps=200
+        env = TowersOfHanoi(N=N,max_steps=max_steps)
         s_space_size = env.oneH_s_size 
         n_action = 6 # n. of action available in each state for Tower of Hanoi (including illegal ones)
-        max_steps= max_steps
     else: # Use for gym env with discrete 1d action space        
         env = gym.make(env_name)
         assert isinstance(env.action_space,gym.spaces.discrete.Discrete), "Must be discrete action space"
@@ -63,7 +62,7 @@ logging.info(f'Env: {env_name}, Episodes: {episodes}, Min replay size: {min_repl
 ## ========= Initialise env ========
 env, s_space_size, n_action, max_steps = get_env(env_name)
 ## ======== Initialise alg. ========
-muzero = Muzero(env=env, s_space_size=s_space_size, n_action=n_action, max_steps=max_steps, discount=discount, dirichlet_alpha=dirichlet_alpha, n_mcts_simulations=n_mcts_simulations, unroll_n_steps=unroll_n_steps, batch_s=batch_s, TD_return=TD_return,n_TD_step=n_TD_step, lr=lr, buffer_size=buffer_size, priority_replay=priority_replay, device=dev, n_ep_x_loop=n_ep_x_loop, n_update_x_loop=n_update_x_loop)
+muzero = Muzero(env=env, s_space_size=s_space_size, n_action=n_action, discount=discount, dirichlet_alpha=dirichlet_alpha, n_mcts_simulations=n_mcts_simulations, unroll_n_steps=unroll_n_steps, batch_s=batch_s, TD_return=TD_return,n_TD_step=n_TD_step, lr=lr, buffer_size=buffer_size, priority_replay=priority_replay, device=dev, n_ep_x_loop=n_ep_x_loop, n_update_x_loop=n_update_x_loop)
 
 ## ======== Run training ==========
 tot_acc = muzero.training_loop(episodes, min_replay_size)
