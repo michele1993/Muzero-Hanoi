@@ -6,7 +6,7 @@ from utils import oneHot_encoding
 
 class TowersOfHanoi:
     ''' Implementation of Towers of Hanoi game for RL algorithms'''
-    def __init__(self, N, max_steps, init_state_idx=0):
+    def __init__(self, N, max_steps, init_state_idx=0, goal_peg=2):
         self.discs = N # n. of disks to be used
         self.n_pegs = 3 # NOTE: in tower of Hanoi the number of peg is always 3 (only the n. of disks can increase)
 
@@ -18,8 +18,7 @@ class TowersOfHanoi:
         self.oneH_s_size = self.discs * self.n_pegs
         ## =====================================
 
-        goal_peg = 2 # intialise indx for the goal peg, 2 = right-most peg
-        self.goal = tuple([goal_peg]*self.discs) # initialise goal in tuple representation
+        self.goal = tuple([goal_peg]*self.discs) # initialise goal in tuple representation, 2 = right-most peg
         self.init_state_idx = init_state_idx # initialise indx for starting position
 
         ## Moves is a tuple where the first entry denotes the peg we are going from and the second entry denotes the peg we are going to 
