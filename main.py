@@ -1,3 +1,4 @@
+import os
 import torch
 import numpy as np
 import logging
@@ -19,7 +20,8 @@ def get_env(env_name):
         s_space_size = env.observation_space.shape[0]
         n_action = env.action_space.n
         max_steps = env.spec.max_episode_steps
-    return env, s_space_size, n_action,  max_steps
+        N = None
+    return env, s_space_size, n_action,  max_steps, N
 
 
 ## ======= Set seeds for debugging =======
@@ -32,7 +34,7 @@ setup_logger(s)
 env_n = 0 # 0: 'Hanoi', 1: 'CartPole'
 
 ## ========= Useful variables: ===========
-episodes = 100000
+training_loops = 1#00000
 min_replay_size = 5000
 dirichlet_alpha = 0.25
 n_ep_x_loop = 1#20
@@ -57,12 +59,38 @@ elif env_n == 1:
     n_mcts_simulations=50
     lr=0.005
 
-logging.info(f'Env: {env_name}, Episodes: {episodes}, Min replay size: {min_replay_size}, lr: {lr}, discount: {discount}, n. MCTS: {n_mcts_simulations}, batch size: {batch_s}, TD_return: {TD_return}, Priority Buff: {priority_replay}')
-
 ## ========= Initialise env ========
-env, s_space_size, n_action, max_steps = get_env(env_name)
+env, s_space_size, n_action, max_steps, n_disks = get_env(env_name)
+
+## ====== Log command line =====
+command_line = f'Env: {env_name}, Training Loops: {training_loops}, Min replay size: {min_replay_size}, lr: {lr}, discount: {discount}, n. MCTS: {n_mcts_simulations}, batch size: {batch_s}, TD_return: {TD_return}, Priority Buff: {priority_replay}'
+if env_name == 'Hanoi': # if hanoi also print n. of disks
+    command_line += f', N. disks: {n_disks}'
+logging.info(command_line)
+
 ## ======== Initialise alg. ========
 muzero = Muzero(env=env, s_space_size=s_space_size, n_action=n_action, discount=discount, dirichlet_alpha=dirichlet_alpha, n_mcts_simulations=n_mcts_simulations, unroll_n_steps=unroll_n_steps, batch_s=batch_s, TD_return=TD_return,n_TD_step=n_TD_step, lr=lr, buffer_size=buffer_size, priority_replay=priority_replay, device=dev, n_ep_x_loop=n_ep_x_loop, n_update_x_loop=n_update_x_loop)
 
 ## ======== Run training ==========
-tot_acc = muzero.training_loop(episodes, min_replay_size)
+tot_acc = muzero.training_loop(training_loops, min_replay_size)
+
+## ===== Save results =========
+file_indx = 1 
+# Create directory to store results
+file_dir = os.path.dirname(os.path.abspath(__file__))
+file_dir = os.path.join(file_dir,'results',str(file_indx))
+# Create directory if it did't exist before
+os.makedirs(file_dir, exist_ok=True)
+
+# Store command line
+with open(os.path.join(file_dir,'commands.txt'), 'w') as f:
+    f.write(command_line)
+# Store accuracy
+acc_dir = os.path.join(file_dir,'training_accuracy.pt')
+torch.save(torch.tensor(tot_acc),acc_dir)
+# Store model
+model_dir = os.path.join(file_dir,'muzero_model.pt')
+torch.save({
+    'Muzero_net': muzero.networks.state_dict(),
+    'Net_optim': muzero.networks.optimiser.state_dict()
+}, model_dir)

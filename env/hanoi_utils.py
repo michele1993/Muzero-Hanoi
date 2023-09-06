@@ -1,4 +1,11 @@
 def hanoi_solver(disks, goal_peg):
+    """ Solve the tower of Hanoi starting from any (legal) configuration
+        Args:
+            disks: initial configuration
+            goal_peg: the goal peg, where you want to build the tower
+        Returns:    
+            the min n. of moves necessary to solve the task from the given config.
+    """
     n = len(disks)
     # Calculate the next target peg for each of the disks
     target = goal_peg
