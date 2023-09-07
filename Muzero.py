@@ -46,7 +46,7 @@ class Muzero():
         ## ========== Initialise MuZero components =======
         self.mcts = MCTS(discount=self.discount, root_dirichlet_alpha=dirichlet_alpha, n_simulations=n_mcts_simulations, batch_s=batch_s, device=self.dev)
         # NOTE: use latent reprs size = env state size (i.e., reasonable)
-        self.networks = MuZeroNet(rpr_input_s= s_space_size, action_s = self.n_action, lr=lr,TD_return=TD_return).to(self.dev) 
+        self.networks = MuZeroNet(rpr_input_s= s_space_size, action_s = self.n_action, lr=lr,device=self.dev, TD_return=TD_return).to(self.dev) 
 
         ## ========== Initialise buffer ========
         self.buffer = Buffer(buffer_size, unroll_n_steps, d_state=s_space_size, n_action=self.n_action, device=self.dev) 

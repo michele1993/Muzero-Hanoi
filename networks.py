@@ -14,6 +14,7 @@ class MuZeroNet(nn.Module):
         rpr_input_s,
         action_s,
         lr,
+        device,
         reward_s = 1,
         h1_s = 256, # 64 seems to work worse!
         reprs_output_size=64,
@@ -21,6 +22,7 @@ class MuZeroNet(nn.Module):
         TD_return=False
     ):
         super().__init__()
+        self.dev = device
 
         #TD_return = False ## NOTE: TRIAL DELETE!!!!
         self.num_actions = action_s
@@ -166,7 +168,7 @@ class MuZeroNet(nn.Module):
 
     def _transform_from_2hot(self, probs, min_value, max_value):
         """Transforms from a categorical distribution to a scalar."""
-        support_space = torch.linspace(min_value,max_value, self.support_size)
+        support_space = torch.linspace(min_value,max_value, self.support_size, device=self.dev)
         support_space = support_space.expand_as(probs)
         scalar = torch.sum(probs * support_space, dim=-1, keepdim=True)
         return scalar
