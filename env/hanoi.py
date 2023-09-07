@@ -68,12 +68,33 @@ class TowersOfHanoi:
         return oneH_moved_state, rwd, done, illegal_move
 
     def reset(self):
+        """ Reset always starting from the initial state pre-specified by init_state_idx
+            Returns:
+                the initial state in one-hot encoding representation
+        """
         self.reset_check = True
-        ## NOTE: at the moment reset always from same state based on init_s_idx, but later can randomise this
-        ## by randomising self.init_state_idx
         self.c_state = self.states[self.init_state_idx] # reset to some initial state, e.g., first state (0,0,0,...), all disks on first peg
         self.oneH_c_state = oneHot_encoding(self.c_state, n_integers=self.n_pegs)
         return self.oneH_c_state
+
+    def random_reset(self):
+        """ Reset starting from a random (legal) inital state
+            Returns:
+                the initial state in one-hot encoding representation
+        """
+        self.reset_check = True
+        # Make sure don't restart at goal state, need loop since goal state not always = last state in terms of indxes
+        while True:
+            random_indx = np.random.randint(len(self.states))
+            self.c_state = self.states[random_indx] # reset to some random state
+            if self.c_state != self.goal:
+                break
+        self.oneH_c_state = oneHot_encoding(self.c_state, n_integers=self.n_pegs)
+        return self.oneH_c_state
+
+    def current_state(self):
+        """ Return current state in a list with original representation - i.e., not one-hot"""
+        return list(self.c_state)
 
     def _discs_on_peg(self, peg):
         ## Allows to create a list contatining all the disks that are on that specific peg at the moment (i.e. self.state)
