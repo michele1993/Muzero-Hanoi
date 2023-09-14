@@ -80,6 +80,9 @@ class Node:
             raise ValueError('Expand leaf node first.')
 
         ucb_results = self.child_Q(config, min_max_stats) + self.child_U(config)
+        #print('Q: ', self.child_Q(config, min_max_stats))
+        #print('U: ', self.child_U(config))
+        #print('ucb: ',ucb_results)
 
         # Break ties when have multiple 'max' value.
         a_indx = np.random.choice(np.where(ucb_results == ucb_results.max())[0])

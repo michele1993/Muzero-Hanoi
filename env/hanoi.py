@@ -11,11 +11,12 @@ class TowersOfHanoi:
         self.n_pegs = 3 # NOTE: in tower of Hanoi the number of peg is always 3 (only the n. of disks can increase)
 
         # ===== Generate the state space =======
-        #NOTE: state representation is a tuple where the position denotes a different disk while the value denotes the peg, so
-        # a 5 disk tower has a 5 dim state space (each dim for a different disk with the value denoting the peg 
+        #NOTE: state representation is a tuple where the position denotes a different disk, where the smaller the indx position the smaller the disk,
+        # while the value denotes the peg, so a 5 disk tower has a 5 dim state space (each dim for a different disk with the value denoting the peg 
         # since there are 3 pegs, possible values can be {0,1,2}).
+        # (e.g., state: (0,1,2) the smallest disk is on the leftmost peg(0) while the largest disk is on the rightmost peg(2))
         self.states = list(itertools.product(list(range(self.n_pegs)), repeat=self.discs)) # Cartesian product of [0,1,2], N elements at the time 
-        self.oneH_s_size = self.discs * self.n_pegs
+        self.oneH_s_size = self.discs * self.n_pegs # needed to determine input to networks
         ## =====================================
 
         self.goal = tuple([goal_peg]*self.discs) # initialise goal in tuple representation, 2 = right-most peg

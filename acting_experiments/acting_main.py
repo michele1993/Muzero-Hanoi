@@ -32,28 +32,62 @@ env = TowersOfHanoi(N=N,max_steps=max_steps)
 s_space_size = env.oneH_s_size 
 n_action = 6 # n. of action available in each state for Tower of Hanoi (including illegal ones)
 discount = 0.8
-n_mcts_simulations_range = [5,10,20,30,40,50,80,100] #25 during acting n. of mcts passes for each step
+n_mcts_simulations_range = [1]#[5,10,30,50,80,110,150] #25 during acting n. of mcts passes for each step
 lr = 0
 TD_return = True # needed for NN to use logit to scalar transform
-run_n = 1
+model_run_n = 1 
+save_results = True
+seed_indx = s
 
-## ======= Experiemnt variables ===============
-pertub_p = True # perturb p() function in Muzero (i.e. latent policy)
-perturb_p_magnitude = 0.5 # magnitude of perturbation to p()
 
-## ====== Log command line =====
-command_line = f'Env: {env_name}, Episodes: {episode},  Latent pol perturb: {pertub_p} and magn. {perturb_p_magnitude}, n. MCTS: {n_mcts_simulations_range}, N. disks: {N}'
-logging.info(command_line)
-
-# Load pre-trained NN
+# ======= Load pre-trained NN ========
 mcts = MCTS(discount=discount, root_dirichlet_alpha=dirichlet_alpha, n_simulations=n_mcts_simulations_range[0], batch_s=1, device=dev)
-networks = MuZeroNet(rpr_input_s= s_space_size, action_s = n_action, lr=lr,TD_return=TD_return, perturb_p=pertub_p,perturb_p_magnitude=perturb_p_magnitude).to(dev) 
-model_dict = torch.load(f'/Users/px19783/code_repository/cerebellum_project/latent_planning/results/{run_n}/muzero_model.pt')
+networks = MuZeroNet(rpr_input_s= s_space_size, action_s = n_action, lr=lr,TD_return=TD_return).to(dev) 
+model_dict = torch.load(f'/Users/px19783/code_repository/cerebellum_project/latent_planning/results/{model_run_n}/muzero_model.pt')
 networks.load_state_dict(model_dict['Muzero_net'])
 networks.optimiser.load_state_dict(model_dict['Net_optim'])
 
-# Try randomly initialising policy net
-#networks.policy_net.apply(networks.reset_param)
+## ======== Experimental set-up ==========
+# Set variables below to run different experiments
+
+# Reset latent policy
+reset_latent_policy = False
+if reset_latent_policy:
+    networks.policy_net.apply(networks.reset_param) # Try randomly initialising policy net, to simulate cerebellum damage
+
+# Reset latent values
+reset_latent_values = False
+if reset_latent_values:
+    networks.value_net.apply(networks.reset_param)
+
+reset_latent_rwds = False
+if reset_latent_rwds:
+    networks.rwd_net.apply(networks.reset_param)
+
+## ------ Define starting states for additional analysis ----
+start = 2 # set to None for random starting state
+if start is not None:
+    # I specifically selected states which are not ecounted during the optimal traject from the training starting state
+    # ES: early state, MS: mid state, LS: late state
+    if start ==0:
+        init_state = (2,2,0) # 7 moves away from goal 
+        file_indx = 'ES'
+    elif start==1:
+        init_state = (0,0,2) # 3 moves away from goal for N=3
+        file_indx = 'MS'
+    elif start ==2:
+        init_state = (1,2,2) # 1 move away 
+        file_indx = 'LS'
+    init_state_idx = env.states.index(init_state)
+    env.init_state_idx = init_state_idx
+
+# Start from random state
+else: 
+    file_indx = 'RandState'
+
+## ====== Log command line =====
+command_line = f'Seed: {s}, Env: {env_name}, Run type: {file_indx}, Episodes: {episode},  Reset latent pol: {reset_latent_policy}, Reset latent value: {reset_latent_values}, Reset latent rwd: {reset_latent_rwds}, n. MCTS: {n_mcts_simulations_range}, N. disks: {N}'
+logging.info(command_line)
 
 ## ======== Run acting ==========
 data = []
@@ -68,8 +102,13 @@ for n in n_mcts_simulations_range:
         episode_piProb = []
         episode_rootQ = []
 
-        # Start from an initial random state (apart from goal)
-        c_state = env.random_reset()
+        if start is not None:
+            # Reset from pre-defined initial state
+            c_state = env.reset()
+        else:            
+            # Start from an initial random state (apart from goal)
+            c_state = env.random_reset()
+
         # Compute min n. moves from current random state
         min_n_moves = hanoi_solver(env.current_state()) # pass state represt not in one-hot form  
 
@@ -99,16 +138,32 @@ for n in n_mcts_simulations_range:
 
 print(data)
 ## ===== Save results =========
-file_indx = 1 
 # Create directory to store results
 file_dir = os.path.dirname(os.path.abspath(__file__))
-file_dir = os.path.join(file_dir,'results',str(file_indx))
+file_dir = os.path.join(file_dir,'results',str(seed_indx),str(file_indx))
 # Create directory if it did't exist before
-#os.makedirs(file_dir, exist_ok=True)
+os.makedirs(file_dir, exist_ok=True)
+
+label_1,label_2,label_3='','',''
+if reset_latent_policy or reset_latent_values or reset_latent_rwds:
+    if reset_latent_policy:
+        label_1 = 'ResetLatentPol_'
+    if reset_latent_values:
+        label_2 = 'ResetLatentVal_'
+    if reset_latent_rwds:
+        label_3= 'ResetLatentRwd_'
+
+# Allow to combine reset rwd with other reset
+label = label_1 + label_2 + label_3
+
+if label == '':
+    label='Muzero_'
+
+acc_dir = os.path.join(file_dir,label+'actingAccuracy.pt')
 
 # Store command line
-#with open(os.path.join(file_dir,'commands.txt'), 'w') as f:
-    #f.write(command_line)
-# Store accuracy
-acc_dir = os.path.join(file_dir,'acting_accuracy.pt')
-#torch.save(torch.tensor(tot_acc),acc_dir)
+if save_results:
+    with open(os.path.join(file_dir,label+'commands.txt'), 'w') as f:
+        f.write(command_line)
+    # Store accuracy
+    torch.save(torch.tensor(data),acc_dir)

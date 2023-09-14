@@ -57,6 +57,7 @@ class MCTS():
         root_node.expand(prior_prob,h_state, rwd) 
 
         for s in range(self.n_simulations):
+            #print('Simulation n. :', s+1)
             ## ====  Phase 1 - Select ====
             # Reset initial node to root for each mcts simulation
             node = root_node 
@@ -65,6 +66,7 @@ class MCTS():
             # NOTE: the leaf will not be expanded (i.e. have no state)
             while node.is_expanded:
                 node = node.best_child(self, self.min_max_stats) # pass MCTS object to have access to the config
+                #print('Move: ', node.move,"\n")
 
             ## ==== Phase 2 - Expand leaf - based on parent state and action associated to that (best) leaf ==== 
             h_state = torch.from_numpy(node.parent.h_state).to(self.dev,dtype=torch.float32) # node.parent because while loop ends at not expanded (best) child

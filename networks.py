@@ -20,15 +20,8 @@ class MuZeroNet(nn.Module):
         reprs_output_size=64,
         weight_decay=1e-4,
         TD_return=False,
-        perturb_p = False, # this is used for the cerebellum experiments
-        perturb_p_magnitude =0.1,
     ):
         super().__init__()
-
-        ## ==== Cerebellum experiments =====
-        self.perturb_p = perturb_p
-        self.perturb_p_magnitude = perturb_p_magnitude
-        ## ===========================
 
         self.num_actions = action_s
         self.TD_return = TD_return
@@ -85,11 +78,6 @@ class MuZeroNet(nn.Module):
 
         pi_probs = F.softmax(pi_logits,dim=-1) # NOTE: dim ?
 
-        # For cerebellum experiments
-        if self.perturb_p:
-            pertub = torch.randn_like(pi_probs) * self.perturb_p_magnitude
-            pi_probs = pi_probs + pertub
-
         rwd = torch.zeros_like(value) # NOTE: Not sure why it doesn't predict rwd for initial inference
 
         pi_probs = pi_probs.squeeze(0).cpu().numpy()
@@ -112,11 +100,6 @@ class MuZeroNet(nn.Module):
         pi_logits, value = self.prediction(h_state)
 
         pi_probs = F.softmax(pi_logits,dim=-1) # NOTE: dim ?
-
-        # For cerebellum experiments
-        if self.perturb_p:
-            pertub = torch.randn_like(pi_probs) * self.perturb_p_magnitude
-            pi_probs = pi_probs + pertub
 
         pi_probs = pi_probs.squeeze(0).cpu().numpy()
         value = value.squeeze(0).cpu().item()
