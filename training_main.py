@@ -31,7 +31,7 @@ np.random.seed(s)
 setup_logger(s)
 
 ## ======= Select the environment ========
-env_n = 0 # 0: 'Hanoi', 1: 'CartPole'
+env_n = 1 # 0: 'Hanoi', 1: 'CartPole'
 
 ## ========= Useful variables: ===========
 training_loops = 4000#00000
@@ -44,7 +44,14 @@ TD_return = True
 n_TD_step = 10
 buffer_size = 50000 #int(1e6)
 priority_replay = True
-dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# Select correct device
+if torch.cuda.is_available():
+    dev='cuda'
+elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available(): ## for MAC GPU usage
+    dev='mps'
+else:
+    dev='cpu'
 
 if env_n ==0:
     env_name = 'Hanoi' 
@@ -78,7 +85,7 @@ tot_acc = muzero.training_loop(training_loops, min_replay_size)
 file_indx = 1 
 # Create directory to store results
 file_dir = os.path.dirname(os.path.abspath(__file__))
-file_dir = os.path.join(file_dir,'results',str(file_indx))
+file_dir = os.path.join(file_dir,'results',env_name,str(file_indx))
 # Create directory if it did't exist before
 os.makedirs(file_dir, exist_ok=True)
 

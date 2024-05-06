@@ -64,8 +64,10 @@ class MCTS():
 
             # Select best child node until reach a leaf
             # NOTE: the leaf will not be expanded (i.e. have no state)
+            self.latent_actions = [] # Store only the actions for the last simulation
             while node.is_expanded:
                 node = node.best_child(self, self.min_max_stats) # pass MCTS object to have access to the config
+                self.latent_actions.append(torch.tensor([node.move], dtype=torch.long, device=self.dev))
                 #print('Move: ', node.move,"\n")
 
             ## ==== Phase 2 - Expand leaf - based on parent state and action associated to that (best) leaf ==== 
@@ -100,6 +102,10 @@ class MCTS():
         # pi_prob and root_node.Q are returned to be stored for the training phase
         # root_node.Q is only needed if use TD-returns, by bootstrapping value of future (root) states to update values of current (root) state
         return action, pi_prob, root_node.Q
+
+    def return_latent_actions(self):
+        """ Return the latent actions driving the last sweep of the MCTS """
+        return self.latent_actions
 
     def add_dirichlet_noise(self, prob, eps=0.25, alpha=0.25):
         """Add dirichlet noise to a given probabilities.

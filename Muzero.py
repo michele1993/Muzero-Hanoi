@@ -90,12 +90,11 @@ class Muzero():
 
             if n * self.n_ep_x_loop % print_acc == 0:
                 mean_acc = sum(accuracy) / print_acc
-                logging.info(f'| Training Loop: {n} | Mean accuracy: {mean_acc} \n')
+                logging.info(f'| Training Loop: {n} | Mean accuracy: {mean_acc}')
                 logging.info(f"Mean acc:  {mean_acc}")
                 logging.info(f"V loss:  {sum(value_loss)/print_acc}")
                 logging.info(f"rwd loss:  {sum(rwd_loss)/print_acc}")
-                logging.info(f"Pi loss:  {sum(pi_loss)/print_acc}")
-                logging.info("\n")
+                logging.info(f"Pi loss:  {sum(pi_loss)/print_acc} \n")
                 tot_accuracy.append(mean_acc)
                 accuracy = []
                 value_loss,rwd_loss,pi_loss = [],[],[]
@@ -119,7 +118,7 @@ class Muzero():
             # Run MCTS to select the action
             action, pi_prob, rootNode_Q = self.mcts.run_mcts(c_state, self.networks, temperature=adjust_temperature(episode), deterministic=deterministic)
             # Take a step in env based on MCTS action
-            n_state, rwd, done, illegal_move = self.env.step(action)
+            n_state, rwd, done, _ = self.env.step(action)
             step +=1
             
             # Store variables for training

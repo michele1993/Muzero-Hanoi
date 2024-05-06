@@ -32,11 +32,11 @@ env = TowersOfHanoi(N=N,max_steps=max_steps)
 s_space_size = env.oneH_s_size 
 n_action = 6 # n. of action available in each state for Tower of Hanoi (including illegal ones)
 discount = 0.8
-n_mcts_simulations_range = [1]#[5,10,30,50,80,110,150] #25 during acting n. of mcts passes for each step
+n_mcts_simulations_range = [5,10,30,50,80,110,150] #25 during acting n. of mcts passes for each step
 lr = 0
 TD_return = True # needed for NN to use logit to scalar transform
 model_run_n = 1 
-save_results = True
+save_results = False
 seed_indx = s
 
 
@@ -65,7 +65,7 @@ if reset_latent_rwds:
     networks.rwd_net.apply(networks.reset_param)
 
 ## ------ Define starting states for additional analysis ----
-start = 2 # set to None for random starting state
+start = None # set to None for random starting state
 if start is not None:
     # I specifically selected states which are not ecounted during the optimal traject from the training starting state
     # ES: early state, MS: mid state, LS: late state
@@ -117,6 +117,7 @@ for n in n_mcts_simulations_range:
         while not done:
             # Run MCTS to select the action
             action, pi_prob, rootNode_Q = mcts.run_mcts(c_state, networks, temperature=temperature, deterministic=False)
+
             # Take a step in env based on MCTS action
             n_state, rwd, done, illegal_move = env.step(action)
             step +=1
@@ -132,6 +133,7 @@ for n in n_mcts_simulations_range:
             # current state becomes next state
             c_state = n_state
 
+        print(step)
         errors.append(step - min_n_moves)
 
     data.append([n,sum(errors)/len(errors)])
