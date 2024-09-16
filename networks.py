@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -19,14 +20,14 @@ class MuZeroNet(nn.Module):
         h1_s = 256, # 64 seems to work worse!
         reprs_output_size=64,
         weight_decay=1e-4,
-        TD_return=False
+        TD_return=False,
     ):
         super().__init__()
         self.dev = device
 
-        #TD_return = False ## NOTE: TRIAL DELETE!!!!
         self.num_actions = action_s
         self.TD_return = TD_return
+        self.reprs_output_size = reprs_output_size
 
         #NOTE: currently use support for both value and rwd prediction 
         if TD_return:
@@ -78,6 +79,7 @@ class MuZeroNet(nn.Module):
         pi_logits, value = self.prediction(h_state)
 
         pi_probs = F.softmax(pi_logits,dim=-1) # NOTE: dim ?
+
         rwd = torch.zeros_like(value) # NOTE: Not sure why it doesn't predict rwd for initial inference
 
         pi_probs = pi_probs.squeeze(0).cpu().numpy()
@@ -100,6 +102,7 @@ class MuZeroNet(nn.Module):
         pi_logits, value = self.prediction(h_state)
 
         pi_probs = F.softmax(pi_logits,dim=-1) # NOTE: dim ?
+
         pi_probs = pi_probs.squeeze(0).cpu().numpy()
         value = value.squeeze(0).cpu().item()
         rwd = rwd.squeeze(0).cpu().item()
@@ -183,3 +186,11 @@ class MuZeroNet(nn.Module):
         _max = h_state.max(dim=-1, keepdim=True)[0]
         return (h_state - _min) / (_max - _min + 1e-8) ## Add small constant to avoid division by 0
 
+    def set_pol_pertubation(self, pertub_magnitude):
+        self.perturb_p_magnitude = pertub_magnitude
+
+    def reset_param(self, l):
+        k = np.sqrt(1 / self.reprs_output_size)
+        if isinstance(l, nn.Linear):
+            nn.init.uniform_(l.weight,a=-k,b=k)
+            nn.init.uniform_(l.bias,a=-k,b=k)
