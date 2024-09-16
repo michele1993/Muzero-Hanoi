@@ -31,10 +31,16 @@ np.random.seed(s)
 setup_logger(s)
 
 ## ======= Select the environment ========
+
 env_n = 1 # 0: 'Hanoi', 1: 'CartPole'
 
 ## ========= Useful variables: ===========
 training_loops = 4000#00000
+=======
+env_n = 0 # 0: 'Hanoi', 1: 'CartPole'
+
+## ========= Useful variables: ===========
+
 min_replay_size = 5000
 dirichlet_alpha = 0.25
 n_ep_x_loop = 1#20
@@ -45,6 +51,7 @@ n_TD_step = 10
 buffer_size = 50000 #int(1e6)
 priority_replay = True
 
+
 # Select correct device
 if torch.cuda.is_available():
     dev='cuda'
@@ -52,6 +59,7 @@ elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available(): ## fo
     dev='mps'
 else:
     dev='cpu'
+
 
 if env_n ==0:
     env_name = 'Hanoi' 
@@ -86,6 +94,7 @@ file_indx = 1
 # Create directory to store results
 file_dir = os.path.dirname(os.path.abspath(__file__))
 file_dir = os.path.join(file_dir,'results',env_name,str(file_indx))
+
 # Create directory if it did't exist before
 os.makedirs(file_dir, exist_ok=True)
 
