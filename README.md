@@ -4,9 +4,8 @@ Implementation of the famous [MuZero](https://arxiv.org/abs/1911.08265) algorith
 
 ## MuZero
 ### Planning
+<img src="https://github.com/michele1993/Muzero-Cerebellum/blob/master/img/Latent_planning.png" alt="Figure: Planning process in MuZero" width="30%" height="30%">
 
-![Planning process in MuZero](Pictures/Latent_planning.png)
-*Figure: Planning process in MuZero*
 
 The planning process of MuZero relies on three key components: an encoder, `h`, that maps observations $[o_1, \dots, o_t]$ to a latent space, `s^0`; a MLP, `f`, mapping latent representations onto a policy as well as a value function; and finally, a recurrent network `g`, which evolves the latent dynamics and predicts rewards, starting from `s^0`. For any real-time step `t`, we have:
 
@@ -37,16 +36,12 @@ I think the simplest approach is to assume that the cerebellum provides the acti
 Alternatively, the dorsal striatum could output the actions driving the latent (planning) dynamics, and the cerebellum could aid planning by predicting future latent states and providing them to `g` as inputs (e.g., like in Pemberton's view). This requires testing, as I am not convinced that providing future latent states to `g` would improve the search, unless this information helps predict `r`, `p^k`, or `v^k`, beyond the information already encoded by `s^k`.
 
 ### Action Selection
-
-![Action selection process in MuZero](Pictures/ActionSelect.png)
-*Figure: Action selection process in MuZero*
+<img src="https://github.com/michele1993/Muzero-Cerebellum/blob/master/img/ActionSelect.png" alt="Figure: Action selection process in MuZero" width="50%" height="50%">
 
 In the environment, actions are chosen by running an MCTS across the latent (recurrent) dynamics (computed by `g()`) and then building a histogram of how many times each action at the initial (root) node has been taken within the MCTS. Based on this histogram (i.e., the discrete probability for each action), an action is sampled to be performed in the environment. Note that the more often an action is selected in an MCTS, the more likely it is to be a good one. This process is repeated at each time step in the environment. The MCTS is always started at the latent representation of a real (observed) state (computed by `h()`). The actions driving the MCTS are based on a mixture of the predicted policy `p` (computed by `f()`), the value `v`, and MCTS exploration bonuses.
 
 ### Training
-
-![Training process in MuZero](Pictures/Training.png)
-*Figure: Training process in MuZero*
+<img src="https://github.com/michele1993/Muzero-Cerebellum/blob/master/img/Training.png" alt="Figure: Training process in MuZero" width="50%" height="50%">
 
 All MuZero components are trained jointly by unfolding the recurrent dynamics a second time based on the real state and the real actions in a separate training step. By "real", we refer to states and actions actually observed and performed in the environment, in contrast to those of the latent planning process. A real state, `s`, and the subsequent number of real actions, `a`, are sampled from a buffer (where the number is a hyper-parameter). The real state is encoded in a latent representation by `h` and then used as the initial (latent) state to unfold the recurrent latent dynamics (`g()`) for `n` steps based on the real `n` actions.
 
@@ -55,7 +50,6 @@ For each step, `g()` and `f()` are provided with targets based on the real (obse
 $$ l_t(\theta) = sum_{n=0}^{N} l^r(u_{t+n},r_t^n) + l^v(z_{t+n},v_t^n) + l^p(\pi_{t+n},p_t^n) + c || \theta ||^2 $$
 
 For each real state at time `t` sampled from a buffer, we unfold the latent (recurrent) dynamics for `n` steps and use the real targets given by `t+n` (i.e., the targets observed after visiting the state at time `t`) to train the MuZero components in one go. This is repeated for each sampled state.
-
 
 
 
