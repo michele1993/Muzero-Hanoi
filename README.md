@@ -6,7 +6,7 @@ Implementation of the famous [MuZero](https://arxiv.org/abs/1911.08265) algorith
 ### Planning
 <img src="https://github.com/michele1993/Muzero-Cerebellum/blob/master/img/Latent_planning.png" alt="Figure: Planning process in MuZero" width="30%" height="30%">
 
-The planning process of MuZero relies on three key components: an encoder, $h$, that maps observations $[o_1, \dots, o_t]$ to a latent space, $s^0$; a MLP, $f$, mapping latent representations onto a policy as well as a value function; and finally, a recurrent network $g$, which evolves the latent dynamics and predicts rewards, starting from $s^0$. For any real-time step $t$, we have:
+The planning process of MuZero relies on three key components: an encoder, $h$, that maps observations $[o_1, \dots, o_t]$ to a latent space, $s^0$; a MLP, $f$, mapping latent representations onto a policy as well as a value function; and finally, a recurrent network $g$, which evolves the latent (planning) dynamics and predicts one-step rewards, starting from $s^0$. For any real-time step $t$, we have:
 
 $$s^0 = h_\theta(o_1, \dots, o_t)$$
 
@@ -15,24 +15,26 @@ $$p^k,v^k = f_\theta(s^k) $$
 $$r^k,s^k = g_\theta(s^{k-1},a^k)$$
 
 
-Based on these three components, MuZero performs a Monte Carlo Tree Search (MCTS) in latent space at each step $t$ to select the action to perform in the (real) environment. The search always starts at $s^i$ and unfolds through the latent dynamics provided by $g_\theta()$, based on actions $a^k$. These actions refer to "latent" actions and are not equal to the actions taken in the environment, which originate from the MCTS. These latent actions (driving the MCTS) are selected based on the following UCB formula:
+Based on these three components, MuZero performs a Monte Carlo Tree Search (MCTS) in latent space to select the action to perform at each step $t$ of the (real) environment. The search always starts at the (root) node associated to state $s^0$ and unfolds through the latent dynamics provided by $g_\theta()$, with actions $a^k$ driving these dynamics. These actions refer to "latent" actions and are not equal to the actions taken in the environment, which originate from the MCTS.  These latent actions reflect a cobination of the latent policy and the estimated value for each node/latent-state visited in the MCTS. Specifically, the latent actions (driving the MCTS) are selected based on the following formula:
 
 $$a^k = argmax \left[Q(s,a) + w P(s,a) \right]$$
 
-where,
+where $Q()$ is the estimated value for the state-action, $(s,a)$, $P()$ is the policy provided by $f_\theta$  and, finally, $w$ represents the UCB bonus, which encourages taking actions that haven't been taken before in the MCTS.
+
+The state-action value, $Q()$, is computed as the sum between the (estimated) one step reward, $r^{k+1}$, and the discounted value of the child node, $s^{k+1}$, resulting from taking action, $a$ in the node/latent-state $s^k$,
+
+$$ Q(s^k,a^k) = r^{k+1} + V^{\text{node}}(s^{k+1}) $$
+
+Here, it is important to stress V^{\text{node}} is not the same as the model predictions $v$. Specifically, the value predictions $v$ are only used during the back-up phase, providing an estimate of the value of the leaf node reached at end of each MCTS pass (i.e., this is different from standard MCTS algorithms without values functions, which simply use the sum of rewards up to that point as a value to back-up). During the back-up phase, the model estimated values $v$ are used to update the parent nodes' values, $V^{\text{node}}$, together with the estimated one step rewards. The actual back-up update is similar to a TD(n) update, where n reflects how many step away the updated node is from the leaf node with estimated value $v$. The resulting value of each node, $V^{\text{node}}$, ends up reflecting an averaged over TD(n) targets for different n.      
+Finally, in the MuZero paper, the UCB bonus, $w$, is computed as following,
 
 $$     w = \frac{\sqrt{\sum_{b} N(s,b)}}{1+N(s,a)} \left(c_1 + \log\frac{\sum_{b} N(s,b) + c_2 +1}{c_2}\right) $$
 
+where $N$ encodes the number of times a state-action pair, $(s,a)$, has been visited within the (current) MCTS, while  $c_1$ and $c_2$ represent fixed hyper-paramters.    
+Note: On the first pass of each MCTS, $w=0$ because $sum_b N(s,b)=0$. Additionally, all $Q(s,\cdot)$ are initialised to zero in the child nodes. Hence, the expanded action (i.e., best child from the root) is random on the first pass of MCTS, even for a trained model.
 
-Here, $Q()$ is the value provided by $v^k$, $P()$ is the policy provided by $p^k$, while $w$ represents the UCB bonus for the MCTS (i.e., encourages visiting actions that haven't been taken). Note: On the first pass of MCTS, $w=0$ because $sum_b N(s,b)=0$ and all $Q(s,\cdot)$ are initialized to zero. Hence, the expanded action (i.e., best child from the root) is random on the first pass of MCTS, even for a trained model.
+In summary, both $v$ and $p$ influence the latent planning dynamics through distinct mechanisms. As we will see below, $p$ is trained to reproduce the action actually taken in the environment (i.e., the result of the MCTS for each step), while $v$ is train to reflect the returns.
 
-We can see that both $v$ and $p$ drive the latent dynamics with different consequences. As we will see below, $p$ is trained to reproduce the action actually taken in the environment (i.e., the result of the MCTS for each step), while $v$ reflects the returns.
-
-**Neural circuit:** In relation to the brain, the encoder, $h$, can be thought of as sensory cortical areas, taking in sensory information and extracting the most relevant information into a latent representation. The recurrent network can most likely be represented by the prefrontal cortex (PFC), providing the structure where the decision-making process can evolve. I think the MLP, $f$, can be represented by two different areas: the (ventral) striatum, which encodes the value of latent states, and a separate area that outputs the actions driving the decision-making process within the latent tree.
-
-I think the simplest approach is to assume that the cerebellum provides the actions driving the decision-making process. This does not require any change to the MuZero architecture. Additionally, this view is consistent with Pemberton's view of the cerebellum, as the cerebellum would still drive (PFC) cortical dynamics by selecting the action driving the latent (planning) dynamics (i.e., driving the RNN $g$ dynamics). I should stress that these actions are not the actual actions taken in the environment, which are the output of MCTS. They are merely the actions driving the planning process (of course, there is a correspondence between the actions driving the planning process and those taken in the environment, as we will see in the training section).
-
-Alternatively, the dorsal striatum could output the actions driving the latent (planning) dynamics, and the cerebellum could aid planning by predicting future latent states and providing them to $g$ as inputs (e.g., like in Pemberton's view). This requires testing, as I am not convinced that providing future latent states to $g$ would improve the search, unless this information helps predict $r$, $p^k$, or $v^k$, beyond the information already encoded by $s^k$.
 
 ### Action Selection
 <img src="https://github.com/michele1993/Muzero-Cerebellum/blob/master/img/ActionSelect.png" alt="Figure: Action selection process in MuZero" width="50%" height="50%">
