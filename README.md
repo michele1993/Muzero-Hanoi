@@ -6,7 +6,7 @@ Implementation of the famous [MuZero](https://arxiv.org/abs/1911.08265) algorith
 ### Planning
 <img src="https://github.com/michele1993/Muzero-Cerebellum/blob/master/img/Latent_planning.png" alt="Figure: Planning process in MuZero" width="30%" height="30%">
 
-The planning process of MuZero relies on three key components: an encoder, `h`, that maps observations $[o_1, \dots, o_t]$ to a latent space, `s^0`; a MLP, `f`, mapping latent representations onto a policy as well as a value function; and finally, a recurrent network `g`, which evolves the latent dynamics and predicts rewards, starting from `s^0`. For any real-time step `t`, we have:
+The planning process of MuZero relies on three key components: an encoder, `h`, that maps observations $[o_1, \dots, o_t]$ to a latent space, `$s^0$`; a MLP, `f`, mapping latent representations onto a policy as well as a value function; and finally, a recurrent network `g`, which evolves the latent dynamics and predicts rewards, starting from `s^0`. For any real-time step `t`, we have:
 
 $$s^0 = h_\theta(o_1, \dots, o_t)$$
 
