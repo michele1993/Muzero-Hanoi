@@ -6,23 +6,22 @@ Implementation of the famous [MuZero](https://arxiv.org/abs/1911.08265) algorith
 ### Planning
 <img src="https://github.com/michele1993/Muzero-Cerebellum/blob/master/img/Latent_planning.png" alt="Figure: Planning process in MuZero" width="30%" height="30%">
 
-
 The planning process of MuZero relies on three key components: an encoder, `h`, that maps observations $[o_1, \dots, o_t]$ to a latent space, `s^0`; a MLP, `f`, mapping latent representations onto a policy as well as a value function; and finally, a recurrent network `g`, which evolves the latent dynamics and predicts rewards, starting from `s^0`. For any real-time step `t`, we have:
 
 $$s^0 = h_\theta(o_1, \dots, o_t)$$
 
-$$p^k, v^k = f_\theta(s^k) $$
+$$p^k,v^k = f_\theta(s^k) $$
 
-$$r^k, s^k = g_\theta(s^{k-1}, a^k)$$
+$$r^k,s^k = g_\theta(s^{k-1},a^k)$$
 
 
 Based on these three components, MuZero performs a Monte Carlo Tree Search (MCTS) in latent space at each step `t` to select the action to perform in the (real) environment. The search always starts at `s^i` and unfolds through the latent dynamics provided by `g_\theta()`, based on actions `a^k`. These actions refer to "latent" actions and are not equal to the actions taken in the environment, which originate from the MCTS. These latent actions (driving the MCTS) are selected based on the following UCB formula:
 
-$$a^k = argmax [Q(s,a) + w P(s,a)]$$
+$$a^k = argmax \left[Q(s,a) + w P(s,a) \right]$$
 
 where,
 
-$$ w = (sqrt(sum_b N(s,b)) / (1 + N(s,a))) * (c_1 + log((sum_b N(s,b) + c_2 + 1) / c_2)) $$
+$$     w = \frac{\sqrt{\sum_{b} N(s,b)}}{1+N(s,a)} \left(c_1 + \log\frac{\sum_{b} N(s,b) + c_2 +1}{c_2}\right) $$
 
 
 Here, `Q()` is the value provided by `v^k`, `P()` is the policy provided by `p^k`, while `w` represents the UCB bonus for the MCTS (i.e., encourages visiting actions that haven't been taken). Note: On the first pass of MCTS, `w=0` because `sum_b N(s,b)=0` and all `Q(s,\cdot)` are initialized to zero. Hence, the expanded action (i.e., best child from the root) is random on the first pass of MCTS, even for a trained model.
@@ -47,7 +46,7 @@ All MuZero components are trained jointly by unfolding the recurrent dynamics a 
 
 For each step, `g()` and `f()` are provided with targets based on the real (observed) rewards, final returns, and action distributions (i.e., based on the action histogram created by the MCTS at each step in the environment). By backpropagating through the `n` steps given the corresponding targets, each component of MuZero is jointly trained for each (real) time step `t`:
 
-$$ l_t(\theta) = sum_{n=0}^{N} l^r(u_{t+n},r_t^n) + l^v(z_{t+n},v_t^n) + l^p(\pi_{t+n},p_t^n) + c || \theta ||^2 $$
+$$     l_t(\theta) = \sum_{n=0}^{N} l^\text{r}(u_{t+n},r_t^n) + l^\text{v}(z_{t+n},v_t^n) + l^\text{p}(\pi_{t+n},p_t^n) + c || \theta ||^2 $$
 
 For each real state at time `t` sampled from a buffer, we unfold the latent (recurrent) dynamics for `n` steps and use the real targets given by `t+n` (i.e., the targets observed after visiting the state at time `t`) to train the MuZero components in one go. This is repeated for each sampled state.
 
