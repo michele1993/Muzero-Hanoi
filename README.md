@@ -2,7 +2,7 @@
 ## Overview
 Implementation of the famous [MuZero](https://arxiv.org/abs/1911.08265) algorithm  to solve the Tower of Hanoi problem. This repository aims to provide a 'playground' to investigate the relation between MuZero and human cognitive planning in healthy and abnormal conditions. 
 
-The repository includes an implementation of the Tower of Hanoi problem, scalable to an unlimited number of disks, on which MuZero can be trained. The implemnation of the Tower of Hanoi can be found in [hanoy.py](env/hanoy.py) . Additionally, I include an implementation of an algorithm to solve the Tower of Hanoi optimally from any starting position. This 'optimal' algorithm serves as a baseline to assess MuZero performances and can be found in [hanoi_utils.py](env/hanoi_utils.py) . Finally, the repository includes a 'core' implementation of the MuZero algorithm, which attempts to simplify MuZero to its core components, taking away some of the additional elements needed to solve more compex tasks.
+The repository includes an implementation of the Tower of Hanoi problem, scalable to an unlimited number of disks, on which MuZero can be trained. The implemnation of the Tower of Hanoi can be found in `hanoy.py` . Additionally, I include an implementation of an algorithm to solve the Tower of Hanoi optimally from any starting position. This 'optimal' algorithm serves as a baseline to assess MuZero performances and can be found in `hanoi_utils.py`. Finally, the repository includes a 'core' implementation of the MuZero algorithm, which attempts to simplify MuZero to its core components, taking away some of the additional elements needed to solve more compex tasks.
 
 ## MuZero
 MuZero is best described through its 3 distinct phases: Planning, Action Selection and Training.
