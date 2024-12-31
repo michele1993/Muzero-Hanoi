@@ -34,7 +34,7 @@ Finally, in the MuZero paper, the UCB bonus, $w$, is computed as following,
 $$     w = \frac{\sqrt{\sum_{b} N(s,b)}}{1+N(s,a)} \left(c_1 + \log\frac{\sum_{b} N(s,b) + c_2 +1}{c_2}\right) $$
 
 where $N$ encodes the number of times a state-action pair, $(s,a)$, has been visited within the (current) MCTS, while  $c_1$ and $c_2$ represent fixed hyper-paramters.    
-Note: On the first pass of each MCTS, $w=0$ because $sum_b N(s,b)=0$. Additionally, all $Q(s,\cdot)$ are initialised to zero in the child nodes. Hence, the expanded action (i.e., best child from the root) is random on the first pass of MCTS, even for a trained model.
+Note: On the first pass of each MCTS, $w=0$ because $\sum_b N(s,b)=0$. Additionally, all $Q(s,\cdot)$ are initialised to zero in the child nodes. Hence, the expanded action (i.e., best child from the root) is random on the first pass of MCTS, even for a trained model.
 
 In summary, both $v$ and $p$ influence the latent planning dynamics through distinct mechanisms. As we will see below, $p$ is trained to reproduce the action actually taken in the environment (i.e., the result of the MCTS for each step), while $v$ is train to reflect the returns.
 
