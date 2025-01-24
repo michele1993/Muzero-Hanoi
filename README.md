@@ -9,7 +9,7 @@ MuZero is best described through its 3 distinct phases: Planning, Action Selecti
 ### Planning
 <img src="https://github.com/michele1993/Muzero-Cerebellum/blob/master/img/Latent_planning.png" alt="Figure: Planning process in MuZero" width="30%" height="30%">
 
-The planning process of MuZero relies on three key components: an encoder, $h$, that maps observations $[o_1, \dots, o_t]$ to a latent space, $s^0$; a MLP, $f$, mapping latent representations onto a policy as well as a value function; and finally, a recurrent network $g$, which evolves the latent (planning) dynamics and predicts one-step rewards, starting from $s^0$. For any real-time step $t$, we have:
+The planning process of MuZero involves a Monte Carlo Tree Search (MCTS), based on three key components: an encoder, $h$, that maps observations $[o_1, \dots, o_t]$ to a latent space, $s^0$; a MLP, $f$, mapping latent representations onto a policy as well as a value function; and finally, a recurrent network $g$, which evolves the latent (planning) dynamics and predicts one-step rewards, starting from $s^0$. For any real-time step $t$, we have:
 
 $$s^0 = h_\theta(o_1, \dots, o_t)$$
 
@@ -22,7 +22,7 @@ Based on these three components, MuZero performs a Monte Carlo Tree Search (MCTS
 
 $$a^k = argmax \left[Q(s,a) + w P(s,a) \right]$$
 
-where $Q()$ is the estimated value for the state-action, $(s,a)$, $P()$ is the policy provided by $f_\theta$  and, finally, $w$ represents the UCB bonus, which encourages taking actions that haven't been taken before in the MCTS.
+where $Q()$ is the estimated value for the state-action, $(s,a)$, $P()$ is the policy provided by $f_\theta$  and, finally, $w$ represents the UCB bonus, which encourages taking actions that haven't been taken before in the MCTS (see below).
 
 The state-action value, $Q()$, is computed as the sum between the (estimated) one step reward, $r^{k+1}$, and the discounted value of the child node, $s^{k+1}$, resulting from taking action, $a$ in the node/latent-state $s^k$,
 
