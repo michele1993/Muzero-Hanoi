@@ -53,7 +53,7 @@ class Muzero():
         self.buffer = Buffer(buffer_size, unroll_n_steps, d_state=s_space_size, n_action=self.n_action, device=self.dev) 
         self.priority_replay = priority_replay
     
-    def training_loop(self, n_loops, min_replay_size, print_acc = 10):
+    def training_loop(self, n_loops, min_replay_size, print_acc = 100):
 
         logging.info('Training started \n')
 

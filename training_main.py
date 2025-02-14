@@ -32,7 +32,7 @@ setup_logger(s)
 
 ## ======= Select the environment ========
 
-env_n = 1 # 0: 'Hanoi', 1: 'CartPole'
+env_n = 0 # 0: 'Hanoi', 1: 'CartPole'
 
 ## ========= Useful variables: ===========
 
@@ -51,8 +51,8 @@ priority_replay = True
 # Select correct device
 if torch.cuda.is_available():
     dev='cuda'
-elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available(): ## for MAC GPU usage
-    dev='mps'
+#elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available(): ## for MAC GPU usage
+#    dev='mps'
 else:
     dev='cpu'
 
