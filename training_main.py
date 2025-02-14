@@ -32,11 +32,11 @@ setup_logger(s)
 
 ## ======= Select the environment ========
 
-env_n = 0 # 0: 'Hanoi', 1: 'CartPole'
+env_n = 1 # 0: 'Hanoi', 1: 'CartPole'
 
 ## ========= Useful variables: ===========
 
-training_loops = 4000#00000
+training_loops = 5000#00000
 min_replay_size = 5000
 dirichlet_alpha = 0.25
 n_ep_x_loop = 1#20
