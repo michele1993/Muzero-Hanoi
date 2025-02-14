@@ -32,15 +32,11 @@ setup_logger(s)
 
 ## ======= Select the environment ========
 
-env_n = 1 # 0: 'Hanoi', 1: 'CartPole'
-
-## ========= Useful variables: ===========
-training_loops = 4000#00000
-=======
 env_n = 0 # 0: 'Hanoi', 1: 'CartPole'
 
 ## ========= Useful variables: ===========
 
+training_loops = 4000#00000
 min_replay_size = 5000
 dirichlet_alpha = 0.25
 n_ep_x_loop = 1#20
@@ -78,7 +74,7 @@ elif env_n == 1:
 env, s_space_size, n_action, max_steps, n_disks = get_env(env_name)
 
 ## ====== Log command line =====
-command_line = f'Env: {env_name}, Training Loops: {training_loops}, Min replay size: {min_replay_size}, lr: {lr}, discount: {discount}, n. MCTS: {n_mcts_simulations}, batch size: {batch_s}, TD_return: {TD_return}, Priority Buff: {priority_replay}'
+command_line = f'Env: {env_name}, Training Loops: {training_loops}, Min replay size: {min_replay_size}, lr: {lr}, discount: {discount}, n. MCTS: {n_mcts_simulations}, batch size: {batch_s}, TD_return: {TD_return}, Priority Buff: {priority_replay}, device: {dev}'
 if env_name == 'Hanoi': # if hanoi also print n. of disks
     command_line += f', N. disks: {n_disks}'
 logging.info(command_line)
