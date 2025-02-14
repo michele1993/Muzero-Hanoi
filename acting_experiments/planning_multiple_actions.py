@@ -10,6 +10,7 @@ from networks import MuZeroNet
 from utils import setup_logger
 from env.hanoi_utils import hanoi_solver 
 
+""" Try to compute a seq of actions from a single Muzero planning step (MCTS), rather than planning at each step"""
 
 ## ======= Set seeds for debugging =======
 s = 1 # seed
@@ -27,17 +28,18 @@ dev = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 ## ========= Initialise env ========
 env_name = 'Hanoi' 
 N = 3 
-max_steps = 200
+max_steps = 30
 env = TowersOfHanoi(N=N,max_steps=max_steps)
 s_space_size = env.oneH_s_size 
 n_action = 6 # n. of action available in each state for Tower of Hanoi (including illegal ones)
 discount = 0.8
-n_mcts_simulations_range = [5,10,30,50,80,110,150] #25 during acting n. of mcts passes for each step
+n_mcts_simulations_range = [1000]#[5,10,30,50,80,110,150] #25 during acting n. of mcts passes for each step
 lr = 0
 TD_return = True # needed for NN to use logit to scalar transform
 model_run_n = 1 
 save_results = False
 seed_indx = s
+max_plan_len = 7
 
 
 # ======= Load pre-trained NN ========
@@ -114,13 +116,18 @@ for n in n_mcts_simulations_range:
 
         done=False
         step = 0
+        # Run MCTS to select the sequence of actions
+        action, pi_prob, rootNode_Q = mcts.run_mcts(c_state, networks, temperature=temperature, deterministic=False)
+        action_seq = mcts.return_latent_actions()
+        action_seq = action_seq[:max_plan_len]
+        print("Ep: ",ep,"; Action seq length", len(action_seq), "; init state: ",c_state)
+        t = 0
         while not done:
-            # Run MCTS to select the action
-            action, pi_prob, rootNode_Q = mcts.run_mcts(c_state, networks, temperature=temperature, deterministic=False)
 
             # Take a step in env based on MCTS action
-            n_state, rwd, done, illegal_move = env.step(action)
+            n_state, rwd, done, illegal_move = env.step(action_seq[t].item())
             step +=1
+            t+=1
             
             # Store variables for training
             # NOTE: not storing the last terminal state (don't think it is needed)
@@ -132,6 +139,13 @@ for n in n_mcts_simulations_range:
 
             # current state becomes next state
             c_state = n_state
+
+            # If action seq finishes before done, re-plan
+            if t >= len(action_seq) and not done:
+                action, pi_prob, rootNode_Q = mcts.run_mcts(c_state, networks, temperature=temperature, deterministic=False)
+                action_seq = mcts.return_latent_actions()[:max_plan_len]
+                print("\n Re-plan Action seq length ", len(action_seq), '\n')
+                t = 0
 
         print(step)
         errors.append(step - min_n_moves)
