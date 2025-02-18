@@ -1,6 +1,6 @@
 # MuZero algorithm for Tower of Hanoi
 ## Installation
-In order to work properly I recommend creating a conda environment with the specified depencies in `environment.yml` and `requirements.txt`.
+In order to work properly I recommend creating a conda environment with the specified dependencies in `environment.yml` and `requirements.txt`.
 This is important because the `gym` module changed some stuff in newer versions, which require adapting the code to run Muzero with standard gym env (e.g., Cartpole).
 
 To create a conda env with all the correct dependecies, simply clone this repository and run,
