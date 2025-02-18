@@ -1,4 +1,16 @@
 # MuZero algorithm for Tower of Hanoi
+## Installation
+In order to work properly I recommend creating a conda environment with the specified depencies in `environment.yml` and `requirements.txt`.
+This is important because the `gym` module changed some stuff in newer versions, which require adapting the code to run Muzero with standard gym env (e.g., Cartpole).
+
+To create a conda env with all the correct dependecies, simply clone this repository and run,
+```
+conda env create --file environment.yml
+```
+inside the repository.
+This will create an `muzero_hanoi` conda env with all the correct dependecies.
+
+
 ## Overview
 Implementation of the famous [MuZero](https://arxiv.org/abs/1911.08265) algorithm  to solve the Tower of Hanoi problem. This repository aims to provide a 'playground' to investigate the relation between MuZero and human cognitive planning in healthy and abnormal conditions. 
 
