@@ -53,7 +53,7 @@ class Muzero():
         self.buffer = Buffer(buffer_size, unroll_n_steps, d_state=s_space_size, n_action=self.n_action, device=self.dev) 
         self.priority_replay = priority_replay
     
-    def training_loop(self, n_loops, min_replay_size, print_acc = 100):
+    def training_loop(self, n_loops, min_replay_size, print_acc = 50):
 
         logging.info('Training started \n')
 
@@ -92,8 +92,8 @@ class Muzero():
 
             if n * self.n_ep_x_loop % print_acc == 0:
                 mean_acc = sum(accuracy) / print_acc
-                logging.info(f'| Training Loop: {n} | Mean accuracy: {mean_acc}')
-                logging.info(f"Mean acc:  {mean_acc}")
+                logging.info(f'| Training Loop: {n} ')
+                logging.info(f"Number of steps:  {mean_acc}")
                 logging.info(f"V loss:  {sum(value_loss)/print_acc}")
                 logging.info(f"rwd loss:  {sum(rwd_loss)/print_acc}")
                 logging.info(f"Pi loss:  {sum(pi_loss)/print_acc} \n")

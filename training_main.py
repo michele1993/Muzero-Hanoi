@@ -6,6 +6,7 @@ import gym
 from env.hanoi import TowersOfHanoi
 from Muzero import Muzero
 from utils import setup_logger
+import argparse
 
 def get_env(env_name):
     if env_name == 'Hanoi':
@@ -31,8 +32,11 @@ np.random.seed(s)
 setup_logger(s)
 
 ## ======= Select the environment ========
-
-env_n = 0 # 0: 'Hanoi', 1: 'CartPole'
+parser = argparse.ArgumentParser()
+parser.add_argument('--env','-e',type=str,nargs='?',default='h') # model type: base, SFT, DPO
+# Extract arguments
+args = parser.parse_args()
+env_p = args.env
 
 ## ========= Useful variables: ===========
 
@@ -57,18 +61,20 @@ else:
     dev='cpu'
 
 
-if env_n ==0:
+if env_p =='h':
     env_name = 'Hanoi' 
     batch_s = 256 #512
     discount = 0.8
     n_mcts_simulations = 25 #11 during acting n. of mcts passes for each step
     lr = 0.002
-elif env_n == 1:
+elif env_p == 'c':
     env_name = "CartPole-v1" 
     batch_s = 256
     discount = 0.997
     n_mcts_simulations=50
     lr=0.005
+else:
+    raise ValueError("Unknown environment prefix, avilable env are 'h':hanoi, 'c':Cartopole")
 
 ## ========= Initialise env ========
 env, s_space_size, n_action, max_steps, n_disks = get_env(env_name)
